@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "fortrader-market": {
+      "type": "stdio",
+      "command": "/usr/bin/python3",
+      "args": [
+        "/home/aviral/Github/fortrader-ai/server.py"
+      ],
+      "env": {}
+    }
+  }
+}
