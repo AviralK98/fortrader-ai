@@ -7,6 +7,9 @@ deterministic technical analysis over it in Python.
 **Research only.** It cannot place, modify or close trades. See
 [docs/security.md](docs/security.md) for how that is enforced.
 
+Free and open source under the [MIT licence](LICENSE) — free to use, copy,
+modify and redistribute, with no warranty.
+
 ```
 Double-click Fortrader AI
         ↓
@@ -123,8 +126,35 @@ error if the app is not running:
 
 It fails in about a second rather than hanging.
 
-`.mcp.json` in this repository points Claude Code at the bridge. Nothing
-rewrites your Claude configuration silently.
+The bridge is the backend executable run with `--mcp`, so an installed
+copy needs no Python and no source tree. **Setup → Connect Claude Code**
+in the app resolves the paths for your machine and offers to add the
+entry to your `.claude.json`; it merges rather than replaces, and nothing
+is written without an explicit click.
+
+## Releasing
+
+```bash
+# bump "version" in desktop/package.json, then
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+GitHub Actions runs the full test suite, builds the sidecar and installer,
+verifies both the backend and the MCP bridge actually start, and publishes
+the release. Free on GitHub's tier; see
+[docs/development.md](docs/development.md#shipping-an-update-to-users).
+
+## Updates
+
+Installed copies check GitHub Releases on launch and every six hours,
+download in the background, and wait for you to press **Restart &
+update** — never restarting on their own. The Python backend ships inside
+the app, so it updates with it.
+
+The download is checksum-verified, but the build is unsigned, so the
+channel does not prove *who* published a release. Fine for a small trusted
+group; see [docs/security.md](docs/security.md#auto-update) before wider
+distribution.
 
 ## Tests
 
@@ -150,6 +180,40 @@ neither Python nor Node**. Per-user install, no admin prompt.
 The installer is currently **unsigned** — Windows SmartScreen will warn on
 first run until a code-signing certificate is supplied. See
 [docs/development.md](docs/development.md#building-the-windows-installer).
+
+## Disclaimer
+
+This software analyses market data. It does not give financial advice, and
+nothing it produces is a recommendation to trade.
+
+The signal score is a measure of how much its own components agree. It has
+**not** been calibrated against outcomes, so it says nothing about the
+probability of any trade succeeding. Backtest and paper-trading figures
+are simulations over small samples, not evidence of an edge.
+
+Trading carries risk of loss. Any decision you take is yours, and the
+software is provided without warranty of any kind — see [LICENSE](LICENSE).
+
+## Cost
+
+Nothing in this project requires payment:
+
+| | |
+|---|---|
+| Every dependency | Open source — Electron, React, Python, pandas, FastAPI, SQLite, PyInstaller, electron-builder |
+| Release hosting and updates | GitHub Releases |
+| CI builds | GitHub Actions free tier |
+| Fortrade demo account | Free |
+
+The one optional cost is a **code-signing certificate** (~£200/year
+commercially), which removes the Windows SmartScreen warning and proves
+who published an update. Without it everything still works — users click
+"More info → Run anyway" once.
+
+If this repository is public, free code-signing programmes exist for open
+source projects (SignPath Foundation is the usual route; check their
+current eligibility rules). Certum also sells inexpensive open-source
+certificates. Neither is required to use or share the app.
 
 ## Repository layout
 

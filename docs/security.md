@@ -127,6 +127,36 @@ The repository previously carried a 62 MB Chrome profile containing
 `git add .` from being committed. That gap is closed. Nothing sensitive was
 ever actually committed; verified against `git ls-files`.
 
+## Auto-update
+
+Installed copies fetch updates from GitHub Releases and verify the
+download against the SHA512 in the release manifest, so a corrupted or
+tampered file is rejected.
+
+**This does not authenticate the publisher.** The build is unsigned, so
+whoever controls the release process can ship arbitrary code to every
+installed copy — and those machines hold a live brokerage session. That is
+a deliberate, bounded trade for distribution to a handful of known people.
+It is **not** adequate for public distribution; sign the build and protect
+release access first.
+
+Two restraints are enforced in code:
+
+- **Updates never restart the app on their own.** They download quietly
+  and wait for an explicit click, so an update cannot drop the Fortrade
+  view mid-session.
+- **Updates are disabled entirely in development**, so a source checkout
+  is never replaced.
+
+## Claude Code configuration
+
+The application never edits the user's Claude configuration on its own.
+The Setup panel shows the exact entry for their machine, and writing it
+requires a button press. The write **merges** — it reads the existing
+file, adds or replaces only the `fortrader-ai` server, and preserves
+everything else. If the file is present but unparseable, the write is
+refused rather than risking the loss of configuration.
+
 ## Demo account posture
 
 The application displays the detected account type prominently. If an

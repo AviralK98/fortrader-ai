@@ -6,11 +6,17 @@
  * Fortrade content, but not blindly.
  */
 
-import { ipcMain, type WebContents } from 'electron';
+import { clipboard, ipcMain, type WebContents } from 'electron';
 
-import { IPC, type ShellInfo, type ViewBounds } from '../shared/types';
+import {
+  IPC,
+  type ShellInfo,
+  type UpdateState,
+  type ViewBounds,
+} from '../shared/types';
 import type { FortradeView } from './fortrade-view';
 import { createLogger } from './logging';
+import { resolveMcpSetup, writeMcpConfig } from './mcp-setup';
 
 const log = createLogger('ipc');
 
@@ -24,6 +30,12 @@ function isViewBounds(value: unknown): value is ViewBounds {
   );
 }
 
+export interface UpdaterBridge {
+  current: () => UpdateState;
+  check: () => void;
+  install: () => void;
+}
+
 export interface IpcDependencies {
   /**
    * Resolved lazily: handlers are registered as soon as the window exists,
@@ -33,6 +45,7 @@ export interface IpcDependencies {
   getFortradeView: () => FortradeView | null;
   onBounds: (bounds: ViewBounds) => void;
   getShellInfo: () => ShellInfo;
+  updater: UpdaterBridge;
 }
 
 export function registerIpc(deps: IpcDependencies): void {
@@ -60,6 +73,31 @@ export function registerIpc(deps: IpcDependencies): void {
   ipcMain.on(IPC.reloadFortrade, () => {
     deps.getFortradeView()?.reload();
   });
+
+  // --- Claude Code setup ------------------------------------------
+
+  ipcMain.handle(IPC.getMcpSetup, () => resolveMcpSetup());
+
+  // Only ever reached from an explicit button press. The renderer cannot
+  // trigger it on load, and the write merges rather than replaces.
+  ipcMain.handle(IPC.writeMcpConfig, () => writeMcpConfig());
+
+  ipcMain.on(IPC.copyToClipboard, (_event, text: unknown) => {
+    if (typeof text !== 'string' || text.length > 20_000) {
+      log.warn('Rejected malformed clipboard payload');
+      return;
+    }
+
+    clipboard.writeText(text);
+  });
+
+  // --- Updates -----------------------------------------------------
+
+  ipcMain.handle(IPC.getUpdateState, () => deps.updater.current());
+
+  ipcMain.on(IPC.checkForUpdates, () => deps.updater.check());
+
+  ipcMain.on(IPC.installUpdate, () => deps.updater.install());
 }
 
 export function unregisterIpc(): void {
@@ -68,6 +106,12 @@ export function unregisterIpc(): void {
     IPC.setFortradeBounds,
     IPC.setFortradeVisible,
     IPC.reloadFortrade,
+    IPC.getMcpSetup,
+    IPC.writeMcpConfig,
+    IPC.copyToClipboard,
+    IPC.getUpdateState,
+    IPC.checkForUpdates,
+    IPC.installUpdate,
   ]) {
     ipcMain.removeHandler(channel);
     ipcMain.removeAllListeners(channel);

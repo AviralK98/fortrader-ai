@@ -14,6 +14,11 @@ from PyInstaller.utils.hooks import collect_submodules
 hidden = [
     *collect_submodules("uvicorn"),
     *collect_submodules("encodings"),
+    # The MCP bridge is reached only through `--mcp`, so static analysis
+    # cannot see it. It must ship: an installed copy has no Python, and
+    # Claude Code needs something on disk to launch.
+    *collect_submodules("mcp_bridge"),
+    *collect_submodules("mcp"),
     "asyncio",
     "anyio._backends._asyncio",
 ]

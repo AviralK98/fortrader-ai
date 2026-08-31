@@ -31,6 +31,10 @@ win:
     - target: nsis
       arch: [x64]
   artifactName: ${productName} Setup ${version}.${ext}
+  # Single source of truth at the repo root rather than a copy under
+  # buildResources, so the two cannot drift. Embedded into the exe and
+  # used for the Start Menu and desktop shortcuts.
+  icon: ../fortrader-ai.ico
   # Unsigned. Windows SmartScreen will warn on first run until the
   # installer is signed with a real certificate — see docs/development.md.
   signAndEditExecutable: true
@@ -42,10 +46,26 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Fortrader AI
+  installerIcon: ../fortrader-ai.ico
+  uninstallerIcon: ../fortrader-ai.ico
+  installerHeaderIcon: ../fortrader-ai.ico
   # The browser session and captured candle history live in the user-data
   # directory. Uninstall must not take them: a reinstall would otherwise
   # force a fresh login and re-collection of every chart.
   deleteAppDataOnUninstall: false
+
+# Where installed copies look for updates. electron-builder also writes
+# latest.yml into release/, which must be uploaded alongside the installer
+# or clients cannot discover the new version.
+#
+# The download is verified against the SHA512 in that manifest, so a
+# corrupted or altered file is rejected. It does NOT prove who published
+# it — that needs code signing. Whoever controls this repository's
+# releases can ship code to every installed copy.
+publish:
+  provider: github
+  owner: AviralK98
+  repo: fortrader-ai
 
 # Speeds up repeat builds and avoids re-downloading Electron each time.
 electronDownload:

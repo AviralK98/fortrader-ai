@@ -6,6 +6,7 @@ import { AccountBar } from './components/AccountBar';
 import { AnalysisPanel } from './components/AnalysisPanel';
 import { FortradeSlot } from './components/FortradeSlot';
 import { StatusStrip } from './components/StatusStrip';
+import { UpdateBanner } from './components/UpdateBanner';
 import { BackendNotReadyError, backend } from './services/backend';
 import { connectShellEvents } from './store/shell';
 
@@ -103,6 +104,8 @@ export function App(): JSX.Element {
         status={status.data}
         backendReachable={!status.isError}
       />
+
+      <UpdateBanner />
 
       <main className="workspace">
         <FortradeSlot />

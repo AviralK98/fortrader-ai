@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Fortrader AI desktop shell",
   "author": "Fortrader AI",
+  "license": "MIT",
   "main": "./out/main/index.js",
   "private": true,
   "_comment": "No \"type\": \"module\": electron-vite then emits CommonJS for main and preload. A sandboxed preload cannot be ESM, and main relies on __dirname. The electron devDependency is pinned exactly (not a range) because electron-builder downloads platform binaries for a specific release and cannot resolve a range.",
@@ -37,6 +38,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.102.8",
+    "electron-updater": "^6.8.9",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "zustand": "^5.0.15"

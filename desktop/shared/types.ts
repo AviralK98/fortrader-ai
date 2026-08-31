@@ -265,6 +265,33 @@ export interface ViewBounds {
   height: number;
 }
 
+export interface UpdateState {
+  status:
+    | 'idle'
+    | 'disabled'
+    | 'checking'
+    | 'current'
+    | 'downloading'
+    | 'ready'
+    | 'error';
+  version?: string;
+  percent?: number;
+  detail?: string;
+}
+
+/** Everything needed to point Claude Code at this installation. */
+export interface McpSetup {
+  /** Absolute path to the backend executable, or the dev interpreter. */
+  command: string;
+  args: string[];
+  cwd?: string;
+  /** Ready-to-paste JSON for the user's Claude config. */
+  configJson: string;
+  /** Where that JSON should go on this machine. */
+  configPath: string;
+  packaged: boolean;
+}
+
 /** Main-process runtime facts the UI needs at startup. */
 export interface ShellInfo {
   backendUrl: string;
@@ -295,6 +322,16 @@ export interface DesktopApi {
   onStateChanged(cb: (state: AppStateValue, detail: string | null) => void): () => void;
   onFortradeViewChanged(cb: (state: FortradeViewState) => void): () => void;
   onBackendLog(cb: (line: string) => void): () => void;
+
+  getMcpSetup(): Promise<McpSetup>;
+  /** Writes the MCP entry to the user's Claude config, with their consent. */
+  writeMcpConfig(): Promise<{ written: boolean; path: string; detail?: string }>;
+  copyToClipboard(text: string): void;
+
+  getUpdateState(): Promise<UpdateState>;
+  checkForUpdates(): void;
+  installUpdate(): void;
+  onUpdateChanged(cb: (state: UpdateState) => void): () => void;
 }
 
 export const IPC = {
@@ -305,6 +342,13 @@ export const IPC = {
   stateChanged: 'app:state-changed',
   fortradeViewChanged: 'fortrade:view-changed',
   backendLog: 'backend:log',
+  getMcpSetup: 'mcp:get-setup',
+  writeMcpConfig: 'mcp:write-config',
+  copyToClipboard: 'shell:copy',
+  getUpdateState: 'update:get-state',
+  checkForUpdates: 'update:check',
+  installUpdate: 'update:install',
+  updateChanged: 'update:changed',
 } as const;
 
 export const FORTRADE_URL = 'https://ready.fortrade.com/';

@@ -10,7 +10,7 @@
  * Chrome, a debugging port, or a manually started Python process.
  */
 
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   BaseWindow,
@@ -33,6 +33,7 @@ import { dumpFortradeDom, isDomProbeEnabled } from './dom-probe';
 import { FortradeAdapter } from './fortrade-adapter';
 import { FortradeView } from './fortrade-view';
 import { NetworkProbe, isNetworkProbeEnabled } from './network-probe';
+import { Updater } from './updater';
 import { registerIpc, safeSend, unregisterIpc } from './ipc';
 import { createLogger } from './logging';
 
@@ -51,6 +52,7 @@ let backend: BackendProcess | null = null;
 let backendReady = false;
 let adapter: FortradeAdapter | null = null;
 let candleCapture: CandleCapture | null = null;
+let updater: Updater | null = null;
 
 const appState = new AppStateMachine();
 
@@ -101,12 +103,30 @@ function applyRendererCsp(): void {
   });
 }
 
+/**
+ * Window icon for development.
+ *
+ * A packaged build takes its icon from the executable, which
+ * electron-builder embeds. In development there is no such exe, so the
+ * taskbar would otherwise show the stock Electron logo.
+ */
+function resolveWindowIcon(): string | undefined {
+  if (app.isPackaged) return undefined;
+
+  const icon = join(app.getAppPath(), '..', 'fortrader-ai.ico');
+
+  return existsSync(icon) ? icon : undefined;
+}
+
 function createWindow(): void {
+  const icon = resolveWindowIcon();
+
   window = new BaseWindow({
     ...WINDOW_DEFAULTS,
     title: 'Fortrader AI',
     backgroundColor: '#0b0f14',
     show: false,
+    ...(icon ? { icon } : {}),
   });
 
   uiView = new WebContentsView({
@@ -317,6 +337,10 @@ if (!app.requestSingleInstanceLock()) {
 
     // Registered before the backend await: the renderer mounts immediately
     // and calls getShellInfo, which would otherwise find no handler.
+    updater = new Updater((state) => {
+      safeSend(uiContents(), IPC.updateChanged, state);
+    });
+
     registerIpc({
       getFortradeView: () => fortradeView,
       onBounds: (bounds) => {
@@ -328,7 +352,14 @@ if (!app.requestSingleInstanceLock()) {
         appVersion: app.getVersion(),
         tradingEnabled: false,
       }),
+      updater: {
+        current: () => updater?.current() ?? { status: 'idle' },
+        check: () => void updater?.check(),
+        install: () => updater?.install(),
+      },
     });
+
+    updater.start();
 
     appState.set('STARTING');
 
@@ -345,6 +376,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  updater?.stop();
   candleCapture?.stop();
   adapter?.stop();
   unregisterIpc();

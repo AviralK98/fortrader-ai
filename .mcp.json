@@ -5,7 +5,8 @@
       "command": "C:\\Users\\Aviral\\AppData\\Local\\Programs\\Python\\Python310\\python.exe",
       "args": [
         "-m",
-        "mcp_bridge.server"
+        "backend.main",
+        "--mcp"
       ],
       "cwd": "E:\\Github\\fortrader-ai",
       "env": {}

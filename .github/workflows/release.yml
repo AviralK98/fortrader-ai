@@ -1,0 +1,140 @@
+name: Release
+
+# Builds and publishes a Windows installer when a version tag is pushed:
+#
+#   git tag v0.2.0 && git push origin v0.2.0
+#
+# Publishes both the installer and latest.yml. Installed copies discover
+# updates through latest.yml, so a release without it is invisible to
+# every existing user.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  # Required for electron-builder to create the GitHub release.
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      # electron-updater compares against the version in package.json, not
+      # the tag. If they disagree, clients either never see the release or
+      # see the wrong version — so fail loudly here instead.
+      - name: Verify tag matches package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}" -replace '^v', ''
+          $pkg = (Get-Content desktop/package.json | ConvertFrom-Json).version
+          if ($tag -ne $pkg) {
+            throw "Tag v$tag does not match desktop/package.json version $pkg"
+          }
+          Write-Host "Version $pkg matches tag."
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements-dev.txt pyinstaller
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      # npm may skip lifecycle scripts, leaving no Electron binary for
+      # electron-builder to package.
+      - name: Ensure Electron binary
+        shell: pwsh
+        run: |
+          if (-not (Test-Path node_modules/electron/dist/electron.exe)) {
+            Write-Host "Electron binary missing; running its installer."
+            node node_modules/electron/install.js
+          }
+
+      # A release must never ship code that fails its own tests.
+      - name: Run full test suite
+        run: |
+          python -m pytest
+          python -m ruff check .
+          python -m mypy backend mcp_bridge
+          npm run typecheck
+          npm run lint
+          npm test
+
+      - name: Build Python sidecar
+        run: python -m PyInstaller backend.spec --noconfirm --distpath dist --workpath build
+
+      # A sidecar that builds but cannot start is worse than a build
+      # failure: it only surfaces on the user's machine.
+      - name: Smoke-test the sidecar
+        shell: pwsh
+        env:
+          FORTRADER_PORT: '8797'
+        run: |
+          $env:FORTRADER_DATA_DIR = Join-Path $env:RUNNER_TEMP 'fortrader-check'
+          $proc = Start-Process -PassThru -WindowStyle Hidden `
+            -FilePath dist/fortrader-backend/fortrader-backend.exe
+          try {
+            $ok = $false
+            foreach ($i in 1..30) {
+              Start-Sleep -Seconds 1
+              try {
+                $health = Invoke-RestMethod 'http://127.0.0.1:8797/health' -TimeoutSec 2
+                if ($health.ok) { $ok = $true; break }
+              } catch { }
+            }
+            if (-not $ok) { throw 'Sidecar did not answer /health' }
+            Write-Host "Sidecar healthy (schema v$($health.schema_version))."
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      # The same executable serves the MCP bridge, so a broken --mcp mode
+      # would silently disconnect every user's Claude Code.
+      - name: Verify the MCP bridge responds
+        shell: pwsh
+        run: |
+          $exe = 'dist/fortrader-backend/fortrader-backend.exe'
+          $psi = [System.Diagnostics.ProcessStartInfo]::new($exe, '--mcp')
+          $psi.RedirectStandardInput = $true
+          $psi.RedirectStandardOutput = $true
+          $psi.UseShellExecute = $false
+          $p = [System.Diagnostics.Process]::Start($psi)
+          $req = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}'
+          $p.StandardInput.WriteLine($req)
+          $p.StandardInput.Flush()
+          $line = $p.StandardOutput.ReadLineAsync()
+          if (-not $line.Wait(30000)) { $p.Kill(); throw 'MCP bridge did not respond' }
+          $p.Kill()
+          if (-not $line.Result) { throw 'MCP bridge returned nothing' }
+          Write-Host "MCP bridge responded."
+
+      - name: Build and publish the installer
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm run build
+          npx electron-builder --win --config electron-builder.yml --publish always
+
+      - name: Upload installer as a workflow artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fortrader-ai-windows
+          path: |
+            release/*.exe
+            release/latest.yml
+          if-no-files-found: error
