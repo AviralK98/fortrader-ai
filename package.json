@@ -1,0 +1,31 @@
+{
+  "name": "fortrader-ai",
+  "version": "0.1.0",
+  "description": "Deterministic market research desktop application for Web Fortrader. Read-only.",
+  "private": true,
+  "workspaces": [
+    "desktop"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace desktop",
+    "build": "npm run build --workspace desktop",
+    "typecheck": "npm run typecheck --workspace desktop",
+    "lint": "npm run lint --workspace desktop",
+    "test": "npm run test --workspace desktop",
+    "test:py": "python -m pytest",
+    "lint:py": "python -m ruff check .",
+    "typecheck:py": "python -m mypy backend mcp_bridge",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run typecheck:py && npm run lint:py && npm run test:py",
+    "build:backend": "python -m PyInstaller backend.spec --noconfirm --distpath dist --workpath build",
+    "package": "npm run package --workspace desktop",
+    "package:all": "powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "electron@44.0.0": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true
+  }
+}

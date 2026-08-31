@@ -1,0 +1,52 @@
+# Windows packaging.
+#
+# Produces "Fortrader AI Setup <version>.exe" (NSIS) containing the
+# Electron app plus the PyInstaller-built Python sidecar, so the end user
+# installs nothing else — no Python, no Node.
+#
+# Build everything with:  npm run package:all   (from the repo root)
+
+appId: com.fortraderai.desktop
+productName: Fortrader AI
+copyright: Copyright © 2026
+
+directories:
+  output: ../release
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+
+extraResources:
+  # Resolved at runtime as process.resourcesPath/backend/fortrader-backend.exe
+  # by desktop/main/backend-process.ts.
+  - from: ../dist/fortrader-backend
+    to: backend
+    filter:
+      - '**/*'
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName} Setup ${version}.${ext}
+  # Unsigned. Windows SmartScreen will warn on first run until the
+  # installer is signed with a real certificate — see docs/development.md.
+  signAndEditExecutable: true
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Fortrader AI
+  # The browser session and captured candle history live in the user-data
+  # directory. Uninstall must not take them: a reinstall would otherwise
+  # force a fresh login and re-collection of every chart.
+  deleteAppDataOnUninstall: false
+
+# Speeds up repeat builds and avoids re-downloading Electron each time.
+electronDownload:
+  cache: .electron-cache

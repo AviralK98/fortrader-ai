@@ -1,0 +1,33 @@
+[project]
+name = "fortrader-ai-backend"
+version = "0.1.0"
+description = "Deterministic market analysis backend for Fortrader AI"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+pythonpath = ["."]
+addopts = "-q --strict-markers"
+filterwarnings = ["error::DeprecationWarning:backend.*"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+exclude = ["legacy", ".venv", "node_modules"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+    # Pydantic/FastAPI dependency-injection defaults trip these.
+    "B008",
+]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_ignores = false
+exclude = ["legacy/", "build/", "dist/"]
+
+[[tool.mypy.overrides]]
+module = ["uvicorn.*", "pandas.*", "mcp.*"]
+ignore_missing_imports = true

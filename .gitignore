@@ -1,2 +1,62 @@
+# ---------------------------------------------------------------
+# Secrets / credentials  — NEVER commit
+# ---------------------------------------------------------------
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Browser profiles & persisted sessions (contain cookies + Login Data)
+fortrade_browser_profile/
+*_browser_profile/
+session/
+partitions/
+Default/
+
+# Dev probe output — redacted, but still captured session traffic and DOM
+dom-probe.json
+net-probe.json
+*-probe.json
+ui*.png
+
+# ---------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------
 .venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# ---------------------------------------------------------------
+# Node / Electron
+# ---------------------------------------------------------------
+node_modules/
+out/
+release/
+.vite/
+.electron-cache/
+*.tsbuildinfo
+
+# ---------------------------------------------------------------
+# Local data
+# ---------------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+data/
+logs/
+*.log
+
+# ---------------------------------------------------------------
+# OS / editor
+# ---------------------------------------------------------------
+Thumbs.db
+.DS_Store
+.idea/
