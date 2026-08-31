@@ -113,9 +113,19 @@ function applyRendererCsp(): void {
 function resolveWindowIcon(): string | undefined {
   if (app.isPackaged) return undefined;
 
-  const icon = join(app.getAppPath(), '..', 'fortrader-ai.ico');
+  const root = join(app.getAppPath(), '..');
 
-  return existsSync(icon) ? icon : undefined;
+  // Windows loads .ico; macOS and Linux need a raster image, so the
+  // exported PNG is used there. First match wins.
+  const candidates =
+    process.platform === 'win32'
+      ? [join(root, 'fortrader-ai.ico')]
+      : [
+          join(root, 'export', 'mac', 'icon_512x512.png'),
+          join(root, 'export', 'mac', 'icon_1024x1024.png'),
+        ];
+
+  return candidates.find((path) => existsSync(path));
 }
 
 function createWindow(): void {

@@ -19,6 +19,12 @@ const log = createLogger('backend');
 const DEFAULT_PORT = 8756;
 const HOST = '127.0.0.1';
 
+/** PyInstaller emits a bare binary everywhere except Windows. */
+export const SIDECAR_EXECUTABLE =
+  process.platform === 'win32'
+    ? 'fortrader-backend.exe'
+    : 'fortrader-backend';
+
 /** How long to wait for the port to answer before declaring failure. */
 const READY_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 250;
@@ -118,13 +124,19 @@ export class BackendProcess {
   } {
     if (app.isPackaged) {
       // PyInstaller sidecar shipped alongside the app (Phase K).
-      const exe = join(process.resourcesPath, 'backend', 'fortrader-backend.exe');
+      const exe = join(
+        process.resourcesPath,
+        'backend',
+        SIDECAR_EXECUTABLE,
+      );
 
       return { command: exe, args: [], cwd: process.resourcesPath };
     }
 
     const repoRoot = join(app.getAppPath(), '..');
-    const python = process.env.FORTRADER_PYTHON ?? 'python';
+    const python =
+      process.env.FORTRADER_PYTHON ??
+      (process.platform === 'win32' ? 'python' : 'python3');
 
     return {
       command: python,

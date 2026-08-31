@@ -6,6 +6,12 @@
 # hides the directory from the user either way.
 #
 # Build with:  python -m PyInstaller backend.spec --noconfirm
+#
+# PyInstaller cannot cross-compile: a macOS bundle must be built on macOS
+# and a Windows one on Windows. Each platform produces its own artefact
+# from this same spec.
+
+import sys
 
 from PyInstaller.utils.hooks import collect_submodules
 
@@ -63,9 +69,11 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    # No console window: the desktop app owns the UI and reads the
-    # sidecar's output over the pipe.
-    console=False,
+    # Windows only: suppress the console window that would otherwise
+    # flash up beside the app. Elsewhere `console=False` marks the binary
+    # as windowed, which interferes with the stdio pipes the parent and
+    # the MCP bridge both rely on.
+    console=sys.platform != "win32",
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

@@ -39,6 +39,24 @@ win:
   # installer is signed with a real certificate — see docs/development.md.
   signAndEditExecutable: true
 
+mac:
+  target:
+    # Architecture is chosen by scripts/build-mac.sh from `uname -m`
+    # rather than pinned here. PyInstaller builds the sidecar for the
+    # host architecture only, so the two must always agree — hardcoding
+    # arm64 would silently produce an app an Intel Mac cannot run.
+    - dmg
+  category: public.app-category.finance
+  # electron-builder generates the .icns from this at build time, so no
+  # macOS-only tooling (iconutil) is needed and there is no generated
+  # binary to keep in sync. 1024px is the size macOS wants for Retina.
+  icon: ../export/mac/icon_1024x1024.png
+  #
+  # The app spawns a child process and opens network connections. Under a
+  # hardened runtime those need entitlements; unsigned local builds do
+  # not, which is why signing is off by default here.
+  identity: null
+
 nsis:
   oneClick: false
   perMachine: false

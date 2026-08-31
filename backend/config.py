@@ -8,6 +8,7 @@ value has a development-friendly default.
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -19,11 +20,20 @@ DEFAULT_PORT = 8756
 
 
 def _default_data_dir() -> Path:
-    """Per-user writable directory for the database and logs."""
-    local_app_data = os.environ.get("LOCALAPPDATA")
+    """Per-user writable directory for the database and logs.
 
-    if local_app_data:
-        return Path(local_app_data) / APP_NAME
+    Only a fallback: the desktop shell passes `FORTRADER_DATA_DIR`
+    explicitly so that both processes agree on one location. This matters
+    when the backend is run standalone.
+    """
+    if sys.platform == "win32":
+        local_app_data = os.environ.get("LOCALAPPDATA")
+
+        if local_app_data:
+            return Path(local_app_data) / APP_NAME
+
+    elif sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / APP_NAME
 
     return Path.home() / f".{APP_NAME.lower()}"
 

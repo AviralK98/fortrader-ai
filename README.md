@@ -1,8 +1,8 @@
 # Fortrader AI
 
-A Windows desktop application that embeds Web Fortrader, reads the market
-and account data the authenticated session already receives, and runs
-deterministic technical analysis over it in Python.
+A desktop application for Windows and macOS that embeds Web Fortrader,
+reads the market and account data the authenticated session already
+receives, and runs deterministic technical analysis over it in Python.
 
 **Research only.** It cannot place, modify or close trades. See
 [docs/security.md](docs/security.md) for how that is enforced.
@@ -27,17 +27,20 @@ Python process.
 
 ## Status
 
-Phase A (foundation) and Phase B (embedded authenticated session) are
-working. The application launches, starts its own backend, hosts Web
-Fortrader in an Electron `WebContentsView`, and persists the login across
-restarts.
+All phases are complete: embedded session, live extraction, candle
+history, indicators, signal scoring, multi-timeframe analysis, SQLite
+persistence, backtesting, paper trading, MCP tools, and installers for
+Windows and macOS. Detail in [future-planning.md](future-planning.md).
 
-Phase C onward — reading account and quote data into the native dashboard,
-candle history, indicators, signals, backtesting, paper trading, packaging
-— is tracked in [future-planning.md](future-planning.md).
+**What it cannot yet tell you is whether any of it works.** The score has
+never been calibrated against outcomes, backtests so far produced 16–17
+trades against a 20-trade reporting floor, and the paper record is only
+just accumulating. The application reports that honestly rather than
+filling the gap with numbers — statistics are withheld below the
+threshold, not estimated.
 
-The analysis panel deliberately shows no numbers yet. Placeholder scores
-would be indistinguishable from wrong ones.
+The macOS build is written and its platform logic is tested, but it has
+**never been built or run on a Mac**.
 
 ## Quick start
 
@@ -167,15 +170,20 @@ Runs TypeScript typecheck, ESLint, Vitest, mypy (strict), Ruff and pytest.
 The Python suite runs against captured fixtures and never touches a real
 Fortrade account.
 
-## Building a Windows installer
+## Building an installer
 
 ```powershell
-npm run package:all
+npm run package:all     # Windows -> release/Fortrader AI Setup <version>.exe
+```
+```bash
+npm run package:mac     # macOS   -> release/Fortrader AI-<version>-<arch>.dmg
 ```
 
-Produces `release/Fortrader AI Setup <version>.exe` (~133 MB): the Electron
-app plus a PyInstaller-built `fortrader-backend.exe`, so **end users need
-neither Python nor Node**. Per-user install, no admin prompt.
+Each bundles the Electron app with a PyInstaller-built backend, so **end
+users need neither Python nor Node**. Windows installs per-user with no
+admin prompt; macOS is drag-to-Applications.
+
+Build each on the platform it targets — PyInstaller cannot cross-compile.
 
 The installer is currently **unsigned** — Windows SmartScreen will warn on
 first run until a code-signing certificate is supplied. See

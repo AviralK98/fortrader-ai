@@ -16,18 +16,27 @@ import { dirname, join } from 'node:path';
 import { app } from 'electron';
 
 import type { McpSetup } from '../shared/types';
+import { SIDECAR_EXECUTABLE } from './backend-process';
 import { createLogger } from './logging';
 
 const log = createLogger('mcp-setup');
 
 const SERVER_NAME = 'fortrader-ai';
 
+/**
+ * `python` on macOS and Linux is often absent or Python 2; `python3` is
+ * the reliable name. Windows ships the `python` launcher.
+ */
+function defaultPythonCommand(): string {
+  return process.platform === 'win32' ? 'python' : 'python3';
+}
+
 export function resolveMcpSetup(): McpSetup {
   const packaged = app.isPackaged;
 
   const command = packaged
-    ? join(process.resourcesPath, 'backend', 'fortrader-backend.exe')
-    : (process.env.FORTRADER_PYTHON ?? 'python');
+    ? join(process.resourcesPath, 'backend', SIDECAR_EXECUTABLE)
+    : (process.env.FORTRADER_PYTHON ?? defaultPythonCommand());
 
   const args = packaged ? ['--mcp'] : ['-m', 'backend.main', '--mcp'];
 

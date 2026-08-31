@@ -19,7 +19,8 @@
     "check": "npm run typecheck && npm run lint && npm run test && npm run typecheck:py && npm run lint:py && npm run test:py",
     "build:backend": "python -m PyInstaller backend.spec --noconfirm --distpath dist --workpath build",
     "package": "npm run package --workspace desktop",
-    "package:all": "powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1"
+    "package:all": "powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1",
+    "package:mac": "bash scripts/build-mac.sh"
   },
   "engines": {
     "node": ">=20"

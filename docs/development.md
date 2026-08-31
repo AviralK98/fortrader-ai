@@ -143,19 +143,6 @@ The script smoke-tests the sidecar between stages. A bundle that builds but
 cannot start is worse than a build failure, because it only surfaces on the
 user's machine.
 
-### Icon
-
-`fortrader-ai.ico` at the repository root is the single source of truth —
-referenced directly by `electron-builder.yml` rather than copied into
-`build/`, so the two cannot drift. It supplies the executable icon, the
-Start Menu and desktop shortcuts, and the installer and uninstaller.
-
-It must keep a 256×256 frame; electron-builder rejects anything smaller.
-
-In development there is no packaged executable to carry an icon, so
-`main.ts` sets the window icon from that same file. Packaged builds take
-it from the exe and need no such handling.
-
 ### What ships
 
 | | |
@@ -204,6 +191,72 @@ port 8756.
 To switch to a product-named directory, call `app.setName('Fortrader AI')`
 before `app.whenReady()` in `desktop/main/main.ts` and rename the existing
 folder, or the old data is orphaned.
+
+## macOS
+
+The code is platform-aware — sidecar name, Python command, data
+directory and MCP discovery all branch on the platform, and those
+branches are covered by `tests/python/test_platforms.py`.
+
+**PyInstaller cannot cross-compile.** A macOS build must be produced on a
+Mac; there is no way to make one from Windows. It also builds for the host
+architecture only, so an Apple Silicon build will not run on an Intel Mac.
+
+```bash
+git clone <repo> && cd fortrader-ai
+python3 -m pip install -r requirements-dev.txt pyinstaller
+npm install
+npm run package:mac
+```
+
+Produces `release/Fortrader AI-<version>-<arch>.dmg` — the macOS
+equivalent of the Windows installer. Open it, drag the app to
+Applications, done. The target machine needs no Python and no Node.
+
+Before packing, the script refuses to run off macOS, checks its
+prerequisites, detects the architecture, starts the sidecar and waits for
+`/health`, and confirms `--mcp` answers. Each check is bounded by a
+polling loop rather than a blocking read: macOS has no GNU `timeout`, and
+an unbounded read would hang the build with no output.
+
+`npm run dev` also works, for development without packaging.
+
+### What is untested
+
+The macOS path has **never been built or run** — it was written from a
+Windows machine. Expect to fix things on first build. The likely
+candidates:
+
+* **Gatekeeper.** An unsigned `.app` that is *downloaded* gets quarantined
+  and refuses to open; right-click → Open, or
+  `xattr -dr com.apple.quarantine "/Applications/Fortrader AI.app"`. A
+  locally built one carries no quarantine flag and just runs.
+* **Notarisation.** Required to distribute a Mac build to anyone else,
+  and it needs a paid Apple Developer account. Running your own build
+  locally does not.
+* **Architecture.** Handled automatically — the script reads `uname -m`
+  and targets the same architecture PyInstaller just built for. Nothing
+  to change for an Intel Mac.
+
+## Icons
+
+Two source assets, each referenced directly by `electron-builder.yml`
+rather than copied into `build/`, so nothing can drift out of sync:
+
+| Platform | Asset | Used for |
+|---|---|---|
+| Windows | `fortrader-ai.ico` | Executable, shortcuts, installer and uninstaller |
+| macOS | `export/mac/icon_1024x1024.png` | electron-builder generates the `.icns` at build time |
+
+Windows requires a 256×256 frame in the `.ico`; macOS requires at least
+512×512, and 1024 is what Retina wants. Generating the `.icns` from a PNG
+at build time avoids needing macOS-only tooling (`iconutil`) and leaves no
+generated binary in the repository.
+
+In development there is no packaged executable to carry an icon, so
+`main.ts` sets the window icon itself — the `.ico` on Windows, the
+exported PNG elsewhere, since macOS and Linux cannot load `.ico`. Packaged
+builds take it from the bundle and need no such handling.
 
 ## Shipping an update to users
 

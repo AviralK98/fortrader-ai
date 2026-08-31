@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -19,27 +20,49 @@ import httpx
 DEFAULT_BASE_URL = "http://127.0.0.1:8756"
 
 
+def _runtime_file_candidates() -> list[Path]:
+    """Where the desktop app may have published its runtime details.
+
+    Electron derives the user-data directory from the package name, which
+    differs per platform, so every plausible location is checked rather
+    than guessing one.
+    """
+    home = Path.home()
+    names = ["fortrader-ai-desktop", "Fortrader AI", "FortraderAI"]
+
+    roots: list[Path] = []
+
+    if sys.platform == "win32":
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        app_data = os.environ.get("APPDATA")
+
+        roots.extend(Path(p) for p in (app_data, local_app_data) if p)
+    elif sys.platform == "darwin":
+        roots.append(home / "Library" / "Application Support")
+    else:
+        roots.append(Path(os.environ.get("XDG_CONFIG_HOME", home / ".config")))
+
+    return [root / name / "data" / "runtime.json" for root in roots for name in names]
+
+
 def _discover_base_url() -> str | None:
     """Read the URL published by a running desktop application.
 
     The app writes `runtime.json` on startup and deletes it on shutdown, so
     the bridge finds the live instance without the user configuring a port.
     """
-    local_app_data = os.environ.get("LOCALAPPDATA")
+    for runtime in _runtime_file_candidates():
+        try:
+            payload = json.loads(runtime.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
 
-    if not local_app_data:
-        return None
+        url = payload.get("url")
 
-    runtime = Path(local_app_data) / "FortraderAI" / "data" / "runtime.json"
+        if isinstance(url, str):
+            return url
 
-    try:
-        payload = json.loads(runtime.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-
-    url = payload.get("url")
-
-    return url if isinstance(url, str) else None
+    return None
 
 # Deliberately short. A missing backend should surface in about a second.
 CONNECT_TIMEOUT = 1.5
