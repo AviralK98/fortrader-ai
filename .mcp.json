@@ -1,11 +1,14 @@
 {
   "mcpServers": {
-    "fortrader-market": {
+    "fortrader-ai": {
       "type": "stdio",
-      "command": "/usr/bin/python3",
+      "command": "C:\\Users\\Aviral\\AppData\\Local\\Programs\\Python\\Python310\\python.exe",
       "args": [
-        "/home/aviral/Github/fortrader-ai/server.py"
+        "-m",
+        "backend.main",
+        "--mcp"
       ],
+      "cwd": "E:\\Github\\fortrader-ai",
       "env": {}
     }
   }

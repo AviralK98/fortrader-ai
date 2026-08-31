@@ -1,0 +1,60 @@
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+
+
+PROFILE_DIR = Path("./fortrade_browser_profile").resolve()
+
+
+with sync_playwright() as p:
+
+    context = p.chromium.launch_persistent_context(
+        user_data_dir=str(PROFILE_DIR),
+        channel="chrome",
+        headless=False,
+        viewport=None,
+    )
+
+    pages = context.pages
+
+    if pages:
+        page = pages[0]
+    else:
+        page = context.new_page()
+
+    page.goto(
+        "https://ready.fortrade.com/",
+        wait_until="domcontentloaded",
+        timeout=60000,
+    )
+
+    print("Browser opened.")
+    print("Current URL:", page.url)
+
+    print()
+    print("------------------------------------------------")
+    print("LOGIN TO YOUR FORTRADE DEMO ACCOUNT IN CHROME")
+    print("Do NOT press Enter here until you can see the")
+    print("actual trading dashboard with instruments/prices.")
+    print("------------------------------------------------")
+    print()
+
+    input("Once the trading dashboard is visible, press Enter...")
+
+    print()
+    print("URL:", page.url)
+    print("Title:", page.title())
+
+    print()
+    print("===== PAGE TEXT =====")
+    print()
+
+    body_text = page.locator("body").inner_text(
+        timeout=10000
+    )
+
+    print(body_text[:15000])
+
+    print()
+    input("Press Enter to close...")
+
+    context.close()

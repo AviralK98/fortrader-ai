@@ -1,0 +1,52 @@
+name: CI
+
+# Runs on every push and pull request. Deliberately does not build the
+# installer — that is slow and only needed for a release. This job is the
+# fast gate that keeps main green.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Python — tests
+        run: python -m pytest
+
+      - name: Python — lint
+        run: python -m ruff check .
+
+      - name: Python — types
+        run: python -m mypy backend mcp_bridge
+
+      - name: TypeScript — types
+        run: npm run typecheck
+
+      - name: TypeScript — lint
+        run: npm run lint
+
+      - name: TypeScript — tests
+        run: npm test

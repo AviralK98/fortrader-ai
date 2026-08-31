@@ -1,0 +1,11 @@
+# Development-only tooling.
+-r requirements.txt
+
+pytest>=8.0
+pytest-asyncio>=0.24
+ruff>=0.6
+mypy>=1.11
+
+# Retained only for the legacy discovery scripts in legacy/prototypes/.
+# The shipped application does not use Playwright.
+playwright>=1.45

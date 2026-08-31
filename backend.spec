@@ -1,0 +1,92 @@
+# PyInstaller spec for the backend sidecar.
+#
+# Built as a one-directory bundle rather than one-file: a one-file build
+# unpacks pandas and numpy into a temp directory on every launch, which
+# adds seconds to startup each time the desktop app opens. The installer
+# hides the directory from the user either way.
+#
+# Build with:  python -m PyInstaller backend.spec --noconfirm
+#
+# PyInstaller cannot cross-compile: a macOS bundle must be built on macOS
+# and a Windows one on Windows. Each platform produces its own artefact
+# from this same spec.
+
+import sys
+
+from PyInstaller.utils.hooks import collect_submodules
+
+# uvicorn resolves its loop, protocol and lifespan implementations by
+# string at runtime, so static analysis cannot see them.
+hidden = [
+    *collect_submodules("uvicorn"),
+    *collect_submodules("encodings"),
+    # The MCP bridge is reached only through `--mcp`, so static analysis
+    # cannot see it. It must ship: an installed copy has no Python, and
+    # Claude Code needs something on disk to launch.
+    *collect_submodules("mcp_bridge"),
+    *collect_submodules("mcp"),
+    "asyncio",
+    "anyio._backends._asyncio",
+]
+
+analysis = Analysis(
+    ["backend/main.py"],
+    pathex=["."],
+    binaries=[],
+    datas=[],
+    hiddenimports=hidden,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    # Trimmed to keep the bundle to a sane size. None of these are
+    # imported by the backend; a missing one would surface immediately as
+    # an ImportError on startup, which the smoke test below catches.
+    excludes=[
+        "tkinter",
+        "matplotlib",
+        "PIL",
+        "PyQt5",
+        "PySide2",
+        "notebook",
+        "IPython",
+        "pytest",
+        "mypy",
+        "playwright",
+        "scipy",
+    ],
+    noarchive=False,
+)
+
+pyz = PYZ(analysis.pure)
+
+exe = EXE(
+    pyz,
+    analysis.scripts,
+    [],
+    exclude_binaries=True,
+    name="fortrader-backend",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    # Windows only: suppress the console window that would otherwise
+    # flash up beside the app. Elsewhere `console=False` marks the binary
+    # as windowed, which interferes with the stdio pipes the parent and
+    # the MCP bridge both rely on.
+    console=sys.platform != "win32",
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
+collect = COLLECT(
+    exe,
+    analysis.binaries,
+    analysis.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name="fortrader-backend",
+)
