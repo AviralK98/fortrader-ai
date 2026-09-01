@@ -24,7 +24,15 @@ hidden = [
     # cannot see it. It must ship: an installed copy has no Python, and
     # Claude Code needs something on disk to launch.
     *collect_submodules("mcp_bridge"),
-    *collect_submodules("mcp"),
+    #
+    # Everything in `mcp` except its optional command line. `mcp.cli`
+    # imports typer, which ships only with the `mcp[cli]` extra, and
+    # without it that module calls sys.exit(1) as it is imported.
+    # PyInstaller 6.22 propagates that out of its isolated child as a
+    # build failure where 6.21 merely warned, so the version installed
+    # decides whether the build works. The sidecar speaks MCP over
+    # stdio and never uses the CLI either way.
+    *collect_submodules("mcp", filter=lambda name: not name.startswith("mcp.cli")),
     "asyncio",
     "anyio._backends._asyncio",
 ]
