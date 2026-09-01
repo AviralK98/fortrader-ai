@@ -10,6 +10,9 @@ import type {
   Analysis,
   BacktestResult,
   ChartSelection,
+  ChatMessage,
+  ChatSend,
+  ChatStatus,
   Coverage,
   MultiTimeframe,
   PaperState,
@@ -67,6 +70,25 @@ export const backend = {
       `/api/signal/timeframes?symbol=${encodeURIComponent(symbol)}`,
     ),
   paper: () => get<PaperState>('/api/paper/positions'),
+  chatStatus: () => get<ChatStatus>('/api/chat/status'),
+  chat: async (body: {
+    message: string;
+    history: ChatMessage[];
+    symbol: string;
+    timeframe: string;
+  }): Promise<ChatSend> => {
+    const response = await fetch(`${BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      // Generous: a reply involves a model call, not a local read.
+      signal: AbortSignal.timeout(90_000),
+    });
+
+    if (!response.ok) throw new Error(`Chat failed: ${response.status}`);
+
+    return (await response.json()) as ChatSend;
+  },
   closePaper: async (tradeId: number) => {
     const response = await fetch(`${BASE_URL}/api/paper/close/${tradeId}`, {
       method: 'POST',

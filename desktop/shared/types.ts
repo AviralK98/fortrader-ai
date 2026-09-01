@@ -246,6 +246,27 @@ export interface PaperState {
   metrics: BacktestMetrics;
 }
 
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatSend {
+  available: boolean;
+  reply: string | null;
+  detail: string | null;
+  /** What live state the answer was grounded in. */
+  grounded_on: string[];
+  /** "cli" (Claude Code subscription) or "api" (key). */
+  provider: string | null;
+}
+
+export interface ChatStatus {
+  available: boolean;
+  provider: string | null;
+  detail: string | null;
+}
+
 export interface ChartSelection {
   symbol: string;
   timeframe: Timeframe;

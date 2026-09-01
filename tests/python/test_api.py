@@ -235,6 +235,13 @@ class TestNoExecutionSurface:
 
     SIMULATED_PREFIX = "/api/paper/"
 
+    #: POST routes outside the simulated namespace. These carry a request
+    #: body but persist nothing and reach nothing — POST is used because
+    #: the payload is too large for a query string, not because state
+    #: changes. Listed individually so a genuinely mutating route cannot
+    #: arrive unnoticed under the same method.
+    STATELESS_POST = frozenset({"/api/chat"})
+
     def test_no_order_routes_outside_the_paper_namespace(
         self, client: TestClient
     ) -> None:
@@ -262,6 +269,8 @@ class TestNoExecutionSurface:
 
             if path.startswith(self.SIMULATED_PREFIX):
                 assert set(methods) <= {"get", "post"}, path
+            elif path in self.STATELESS_POST:
+                assert set(methods) == {"post"}, path
             else:
                 assert set(methods) == {"get"}, path
 
@@ -281,6 +290,39 @@ class TestNoExecutionSurface:
         ]
 
         assert offenders == []
+
+    def test_chat_cannot_write_anything(self) -> None:
+        """The one route where free text reaches a model reads only.
+
+        A question is not an instruction. The chat service composes a
+        prompt from state other code already computed; it must not be
+        able to persist, open, or close anything on the way.
+        """
+        import ast
+
+        tree = ast.parse(
+            (
+                Path(__file__).resolve().parents[2] / "backend" / "chat" / "service.py"
+            ).read_text(encoding="utf-8")
+        )
+
+        imported = {
+            node.module
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module
+        } | {
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+        }
+
+        # Live state arrives as plain arguments. Importing a module that
+        # owns a database handle or a position would give this path a
+        # write it has no reason to hold.
+        for module in imported:
+            for forbidden in ("storage", "paper", "fortrade"):
+                assert forbidden not in module, f"{module} imports {forbidden}"
 
     def test_paper_module_has_no_execution_helpers(self) -> None:
         import backend.paper.engine as engine

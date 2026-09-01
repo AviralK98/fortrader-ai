@@ -1,6 +1,6 @@
 [project]
 name = "fortrader-ai-backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "Deterministic market analysis backend for Fortrader AI"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -30,5 +30,7 @@ warn_unused_ignores = false
 exclude = ["legacy/", "build/", "dist/"]
 
 [[tool.mypy.overrides]]
-module = ["uvicorn.*", "pandas.*", "mcp.*"]
+# `anthropic` is optional: the narrative layer degrades to None without
+# it, so its absence must not fail a type check.
+module = ["uvicorn.*", "pandas.*", "mcp.*", "anthropic.*"]
 ignore_missing_imports = true

@@ -10,3 +10,10 @@ pandas>=2.2
 numpy>=1.26
 
 mcp>=2.0
+
+# Optional. Enables the plain-language narrative over a trade plan.
+# Without it the app is unchanged — the deterministic plan is the
+# product and the narrative is a garnish that degrades to nothing.
+# Requires ANTHROPIC_API_KEY and costs per call.
+#   pip install anthropic
+# anthropic>=0.40

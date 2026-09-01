@@ -1,12 +1,18 @@
 name: Release
 
-# Builds and publishes a Windows installer when a version tag is pushed:
+# Builds and publishes installers when a version tag is pushed:
 #
 #   git tag v0.2.0 && git push origin v0.2.0
 #
-# Publishes both the installer and latest.yml. Installed copies discover
-# updates through latest.yml, so a release without it is invisible to
-# every existing user.
+# Publishes the installer and its manifest for each platform. Installed
+# copies discover updates through those manifests (latest.yml on Windows,
+# latest-mac.yml on macOS), so a release missing one is invisible to
+# every existing user of that platform.
+#
+# PyInstaller cannot cross-compile, so each platform builds its own
+# sidecar on its own runner. macOS runs after Windows rather than beside
+# it: both jobs publish to the same release, and concurrent creation of
+# it is a race.
 
 on:
   push:
@@ -18,7 +24,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  windows:
     runs-on: windows-latest
 
     steps:
@@ -137,4 +143,110 @@ jobs:
           path: |
             release/*.exe
             release/latest.yml
+          if-no-files-found: error
+
+  macos:
+    # Sequential, not parallel: see the note at the top of this file.
+    needs: windows
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Verify tag matches package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(node -p "require('./desktop/package.json').version")
+          if [ "$tag" != "$pkg" ]; then
+            echo "Tag v$tag does not match desktop/package.json version $pkg"
+            exit 1
+          fi
+          echo "Version $pkg matches tag."
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements-dev.txt pyinstaller
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Ensure Electron binary
+        run: |
+          if [ ! -d node_modules/electron/dist/Electron.app ]; then
+            echo "Electron binary missing; running its installer."
+            node node_modules/electron/install.js
+          fi
+
+      - name: Run full test suite
+        run: |
+          python -m pytest
+          python -m ruff check .
+          python -m mypy backend mcp_bridge
+          npm run typecheck
+          npm run lint
+          npm test
+
+      - name: Build Python sidecar
+        run: python -m PyInstaller backend.spec --noconfirm --distpath dist --workpath build
+
+      # As on Windows: a sidecar that builds but cannot start would only
+      # surface on a user's machine. macOS has no GNU `timeout`, so the
+      # waits here are bounded polling loops.
+      - name: Smoke-test the sidecar
+        env:
+          FORTRADER_PORT: '8797'
+        run: |
+          export FORTRADER_DATA_DIR="$RUNNER_TEMP/fortrader-check"
+          ./dist/fortrader-backend/fortrader-backend &
+          pid=$!
+          ok=0
+          for _ in $(seq 1 30); do
+            sleep 1
+            if curl -fsS -m 2 http://127.0.0.1:8797/health > health.json 2>/dev/null; then
+              ok=1
+              break
+            fi
+          done
+          kill "$pid" 2>/dev/null || true
+          if [ "$ok" -ne 1 ]; then echo 'Sidecar did not answer /health'; exit 1; fi
+          echo "Sidecar healthy: $(cat health.json)"
+
+      - name: Verify the MCP bridge responds
+        run: |
+          req='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}'
+          printf '%s\n' "$req" | ./dist/fortrader-backend/fortrader-backend --mcp > mcp-out.txt &
+          pid=$!
+          for _ in $(seq 1 30); do
+            sleep 1
+            [ -s mcp-out.txt ] && break
+          done
+          kill "$pid" 2>/dev/null || true
+          if [ ! -s mcp-out.txt ]; then echo 'MCP bridge did not respond'; exit 1; fi
+          echo "MCP bridge responded."
+
+      - name: Build and publish the disk image
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm run build
+          npx electron-builder --mac --config electron-builder.yml --publish always
+
+      - name: Upload disk image as a workflow artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fortrader-ai-macos
+          path: |
+            release/*.dmg
+            release/latest-mac.yml
           if-no-files-found: error

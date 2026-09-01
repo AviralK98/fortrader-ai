@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import secrets
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -29,6 +29,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.analysis.engine import MINIMUM_BARS, AnalysisResult, analyse
 from backend.api import schemas
 from backend.backtest.engine import BacktestParams, BacktestResult, run_backtest
+from backend.chat import providers as chat_providers
+from backend.chat import service as chat_service
 from backend.config import Settings, load_settings
 from backend.fortrade.models import MarketSnapshot, Quote, Timeframe
 from backend.fortrade.parser import FortradeParseError
@@ -40,6 +42,8 @@ from backend.fortrade.state import AppState, StateStore
 from backend.logging_setup import configure_logging, get_logger
 from backend.paper.engine import PaperTrade
 from backend.paper.service import PaperTradingService
+from backend.planning import narrative
+from backend.planning.plan import TradePlan, build_plan
 from backend.signals.engine import Signal
 from backend.signals.multi_timeframe import (
     MultiTimeframeResult,
@@ -61,7 +65,7 @@ from backend.storage.repositories import (
 #: How often a full market snapshot is written to the database.
 SNAPSHOT_INTERVAL_SECONDS = 300
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 # Bars needed before analysis over a series is considered reliable. EMA 200
 # alone consumes 200 closes before producing its first meaningful value.
@@ -345,6 +349,124 @@ def _register_routes(app: FastAPI) -> None:
             logger.exception("Paper entry evaluation failed")
 
         return signal
+
+    @app.get("/api/plan", response_model=TradePlan)
+    def get_trade_plan(
+        ctx: Ctx,
+        symbol: Annotated[str, Query(min_length=1)],
+        timeframe: Timeframe = Timeframe.M5,
+        risk_percent: Annotated[float, Query(gt=0, le=100)] = 1.0,
+    ) -> TradePlan:
+        """Translate the current signal into a risk-defined trade plan.
+
+        Deterministic. Reports why a setup is not tradeable rather than
+        manufacturing one, and never recommends taking it.
+        """
+        signal, _ = signal_with_timeframes(
+            symbol.upper(), timeframe, ctx.candles
+        )
+
+        quote = next(
+            (q for q in _safe_quotes(ctx) if q.symbol.upper() == symbol.upper()),
+            None,
+        )
+
+        account = None
+
+        with suppress(FortradeDataUnavailableError):
+            account = ctx.source.get_account()
+
+        metrics = ctx.paper.metrics()
+
+        return build_plan(
+            signal,
+            quote=quote,
+            account=account,
+            risk_percent=risk_percent,
+            paper_trades_closed=metrics.trades,
+            paper_trades_required=metrics.minimum_trades,
+        )
+
+    @app.post("/api/chat", response_model=chat_service.ChatReply)
+    def chat(
+        payload: schemas.ChatRequest, ctx: Ctx
+    ) -> chat_service.ChatReply:
+        """Answer a question about this application's own market analysis.
+
+        Scoped: off-topic questions are declined. Grounded: the live
+        deterministic state is injected each turn so answers describe the
+        user's actual data rather than trading in general.
+        """
+        plan = None
+
+        with suppress(Exception):
+            plan = get_trade_plan(ctx, payload.symbol, payload.timeframe)
+
+        account = None
+
+        with suppress(FortradeDataUnavailableError):
+            account = ctx.source.get_account()
+
+        coverage = None
+
+        with suppress(Exception):
+            coverage = ctx.candles.coverage()
+
+        context, grounded = chat_service.build_context(
+            plan=plan,
+            account=account,
+            coverage=coverage,
+            paper_metrics=ctx.paper.metrics(),
+        )
+
+        return chat_service.ask(
+            payload.message, list(payload.history), context, grounded
+        )
+
+    @app.get("/api/chat/status", response_model=schemas.ChatStatusResponse)
+    def chat_status() -> schemas.ChatStatusResponse:
+        """Report the transport without spending anything to find out."""
+        provider = chat_providers.select_provider()
+        usable, detail = provider.available()
+
+        return schemas.ChatStatusResponse(
+            available=usable,
+            provider=provider.name,
+            detail=(
+                None
+                if usable
+                else chat_service.unavailable_detail(provider, detail)
+            ),
+        )
+
+    @app.get("/api/plan/explain", response_model=schemas.NarrativeResponse)
+    def explain_trade_plan(
+        ctx: Ctx,
+        symbol: Annotated[str, Query(min_length=1)],
+        timeframe: Timeframe = Timeframe.M5,
+    ) -> schemas.NarrativeResponse:
+        """Plain-language narrative over the plan, when a key is configured.
+
+        The model explains numbers it is given; it never produces them.
+        """
+        plan = get_trade_plan(ctx, symbol, timeframe)
+
+        if not narrative.is_configured():
+            return schemas.NarrativeResponse(
+                available=False,
+                detail=(
+                    "No ANTHROPIC_API_KEY configured. The plan itself is "
+                    "unaffected — this only adds a written explanation."
+                ),
+            )
+
+        text = narrative.explain(plan)
+
+        return schemas.NarrativeResponse(
+            available=text is not None,
+            narrative=text,
+            detail=None if text else "The narrative could not be generated.",
+        )
 
     # ---------------------------------------------------------------
     # Paper trading — simulated positions only

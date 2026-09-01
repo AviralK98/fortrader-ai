@@ -13,6 +13,7 @@ import type {
   SystemStatus,
 } from '../../../shared/types';
 import { BacktestPanel } from './BacktestPanel';
+import { ChatPanel } from './ChatPanel';
 import { CoveragePanel } from './CoveragePanel';
 import { IndicatorsPanel } from './IndicatorsPanel';
 import { NextSteps } from './NextSteps';
@@ -176,6 +177,10 @@ export function AnalysisPanel({
         refreshKeys={['chart', 'analysis']}
       >
         <IndicatorsPanel analysis={analysis} pending={pending} />
+      </Section>
+
+      <Section title="Ask About This" meta="scoped">
+        <ChatPanel chart={chart} />
       </Section>
 
       <Section title="Paper Trading" meta="simulated" refreshKeys={['paper']}>

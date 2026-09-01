@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.backtest.metrics import BacktestMetrics
+from backend.chat.service import ChatMessage
 from backend.fortrade.models import (
     Account,
     Candle,
@@ -81,6 +82,34 @@ class CoverageResponse(BaseModel):
         description="Bars considered sufficient for reliable analysis."
     )
     total_bars: int
+
+
+class ChatRequest(BaseModel):
+    """A scoped question about the user's own analysis."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    message: str = Field(min_length=1, max_length=2000)
+    history: list[ChatMessage] = Field(default_factory=list, max_length=40)
+
+    symbol: str = "GBP/USD"
+    timeframe: Timeframe = Timeframe.M5
+
+
+class ChatStatusResponse(BaseModel):
+    """Which transport the chat would use, and why not if none."""
+
+    available: bool
+    provider: str | None = None
+    detail: str | None = None
+
+
+class NarrativeResponse(BaseModel):
+    """Optional written explanation. Absence is normal, not an error."""
+
+    available: bool
+    narrative: str | None = None
+    detail: str | None = None
 
 
 class PaperPositionsResponse(BaseModel):

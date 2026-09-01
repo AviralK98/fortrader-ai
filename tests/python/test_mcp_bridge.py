@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from mcp_bridge import client
 from mcp_bridge.client import (
     NOT_RUNNING_MESSAGE,
     BackendClient,
@@ -25,10 +26,27 @@ class TestDiscovery:
 
         assert BackendClient().base_url == "http://127.0.0.1:1234"
 
+    @staticmethod
+    def _isolate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Point every candidate root at a temp directory.
+
+        Discovery deliberately checks several roots so an installed app is
+        found wherever Electron placed its user-data directory. That means
+        patching one of them is not isolation — an unpatched root will find
+        the real running application and the test silently passes or fails
+        on live state.
+        """
+        monkeypatch.setattr(client.sys, "platform", "win32")
+        monkeypatch.setenv("APPDATA", str(tmp_path))
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+
     def test_reads_runtime_file(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        runtime = tmp_path / "FortraderAI" / "data"
+        self._isolate(tmp_path, monkeypatch)
+
+        runtime = tmp_path / "fortrader-ai-desktop" / "data"
         runtime.mkdir(parents=True)
 
         (runtime / "runtime.json").write_text(
@@ -36,27 +54,44 @@ class TestDiscovery:
             encoding="utf-8",
         )
 
-        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
-
         assert _discover_base_url() == "http://127.0.0.1:7777"
 
     def test_missing_runtime_file_is_not_an_error(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+        self._isolate(tmp_path, monkeypatch)
 
         assert _discover_base_url() is None
 
     def test_corrupt_runtime_file_is_not_an_error(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        runtime = tmp_path / "FortraderAI" / "data"
+        self._isolate(tmp_path, monkeypatch)
+
+        runtime = tmp_path / "fortrader-ai-desktop" / "data"
         runtime.mkdir(parents=True)
         (runtime / "runtime.json").write_text("not json", encoding="utf-8")
 
-        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
-
         assert _discover_base_url() is None
+
+    def test_a_corrupt_file_does_not_hide_a_valid_one(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Roots are tried in order; an unreadable file must be skipped
+        # rather than ending the search.
+        self._isolate(tmp_path, monkeypatch)
+
+        bad = tmp_path / "Fortrader AI" / "data"
+        bad.mkdir(parents=True)
+        (bad / "runtime.json").write_text("not json", encoding="utf-8")
+
+        good = tmp_path / "fortrader-ai-desktop" / "data"
+        good.mkdir(parents=True)
+        (good / "runtime.json").write_text(
+            json.dumps({"url": "http://127.0.0.1:7777"}), encoding="utf-8"
+        )
+
+        assert _discover_base_url() == "http://127.0.0.1:7777"
 
 
 class TestFailureBehaviour:

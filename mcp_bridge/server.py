@@ -214,6 +214,49 @@ def analyse_multiple_timeframes(symbol: str) -> JsonObject:
 
 
 @mcp.tool()
+def get_trade_plan(
+    symbol: str,
+    timeframe: str = "M5",
+    risk_percent: float = 1.0,
+) -> JsonObject:
+    """
+    Translate the current signal into a concrete, risk-defined trade plan.
+
+    Returns entry, stop, target, reward-to-risk, position size for the
+    given risk percentage, the invalidation level, and — importantly —
+    an `opposing` list of everything arguing against the trade.
+
+    `viability` says whether the setup is mechanically tradeable at all.
+    It is often not: NO_DIRECTION when no side has agreement,
+    SPREAD_TOO_WIDE when the stop sits inside the spread (common out of
+    hours). Report that plainly rather than working around it.
+
+    Every number is computed deterministically in Python. Do NOT invent,
+    adjust or recompute any of them, and do not present this as advice or
+    as a prediction — no part of this system forecasts price. The `score`
+    measures component agreement and has never been calibrated against
+    outcomes, so it is not a probability. Give `opposing` at least as much
+    airtime as the supporting case.
+
+    Args:
+        symbol: Instrument symbol, e.g. "GBP/USD".
+        timeframe: One of M1, M5, M15, M30, H1, H4, D1.
+        risk_percent: Percentage of equity to risk, for sizing arithmetic.
+    """
+    return cast(
+        JsonObject,
+        _safe(
+            lambda: client.get(
+                "/api/plan",
+                symbol=symbol,
+                timeframe=timeframe.upper(),
+                risk_percent=risk_percent,
+            )
+        ),
+    )
+
+
+@mcp.tool()
 def get_recent_signals(
     symbol: str | None = None,
     timeframe: str | None = None,
