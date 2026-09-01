@@ -76,8 +76,13 @@ def _hidden() -> dict[str, Any]:
     panel already says it is working; a second window saying nothing is
     just noise.
     """
-    if sys.platform == "win32":
-        return {"creationflags": subprocess.CREATE_NO_WINDOW}
+    # The flag and the platform are looked up independently because they
+    # can disagree under test, where sys.platform is patched but the
+    # constant is still whatever the host provides.
+    flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+    if sys.platform == "win32" and flag:
+        return {"creationflags": flag}
 
     return {}
 

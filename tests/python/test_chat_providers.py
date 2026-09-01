@@ -236,16 +236,36 @@ class TestCliLockdown:
 
         assert root in self.kwargs["env"]["PYTHONPATH"]
 
+    @pytest.mark.skipif(
+        not hasattr(subprocess, "CREATE_NO_WINDOW"),
+        reason="CREATE_NO_WINDOW exists only on Windows",
+    )
     def test_no_console_window_is_opened(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # `claude` is a console program. Without this a black window
         # appears over the chart for the whole of every answer.
+        #
+        # Windows-only in both directions: the flag is what suppresses
+        # the window, and the constant naming it does not exist on other
+        # platforms -- so forcing the branch there raises rather than
+        # proving anything.
         monkeypatch.setattr(providers.sys, "platform", "win32")
 
         self.argv(monkeypatch)
 
         assert self.kwargs["creationflags"] == subprocess.CREATE_NO_WINDOW
+
+    def test_other_platforms_spawn_without_the_flag(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The counterpart that does run everywhere: no console window
+        # problem exists off Windows, so no flag should be passed.
+        monkeypatch.setattr(providers.sys, "platform", "darwin")
+
+        self.argv(monkeypatch)
+
+        assert "creationflags" not in self.kwargs
 
     def test_a_wedged_process_cannot_hang_the_request(
         self, monkeypatch: pytest.MonkeyPatch
