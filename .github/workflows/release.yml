@@ -299,15 +299,40 @@ jobs:
             gh release create "$GITHUB_REF_NAME" "${files[@]}"               --repo "$GITHUB_REPOSITORY"               --title "$GITHUB_REF_NAME"               --generate-notes
           fi
 
-      # Proving it from outside is the whole point: this is the request
-      # an installed copy actually makes.
-      - name: Verify the release is publicly visible
+      # Proving it from outside is the whole point: these are the two
+      # requests an installed copy actually makes, in order.
+      #
+      # Checking only that latest.yml exists is not enough, and v0.2.0 is
+      # why. Its manifest published fine and named an installer that was
+      # not there, because a space in the artifact name is stored by
+      # GitHub as a dot and written into the manifest as a dash. The
+      # release looked complete from every angle except the one that
+      # matters, so the download is now followed all the way.
+      - name: Verify an installed copy could actually update
         run: |
           set -euo pipefail
-          url="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/latest.yml"
-          code=$(curl -sL -o /dev/null -w '%{http_code}' "$url")
-          if [ "$code" != "200" ]; then
-            echo "An anonymous fetch of latest.yml returned $code, so no installed copy can see this release."
-            exit 1
-          fi
-          echo 'latest.yml is publicly reachable.'
+          base="https://github.com/$GITHUB_REPOSITORY/releases"
+
+          for manifest in latest.yml latest-mac.yml; do
+            if ! curl -fsSL "$base/latest/download/$manifest" -o "$manifest"; then
+              echo "An anonymous fetch of $manifest failed; no installed copy can see this release."
+              exit 1
+            fi
+
+            name=$(grep -m1 '^path:' "$manifest" | sed 's/^path:[[:space:]]*//' | tr -d '\r')
+
+            if [ -z "$name" ]; then
+              echo "$manifest names no installer."
+              exit 1
+            fi
+
+            code=$(curl -sIL -o /dev/null -w '%{http_code}' "$base/download/$GITHUB_REF_NAME/$name")
+
+            if [ "$code" != "200" ]; then
+              echo "$manifest points at '$name', which returns $code."
+              echo 'The update would be found and then fail to download.'
+              exit 1
+            fi
+
+            echo "$manifest -> $name is downloadable."
+          done

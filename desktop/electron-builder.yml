@@ -30,7 +30,13 @@ win:
   target:
     - target: nsis
       arch: [x64]
-  artifactName: ${productName} Setup ${version}.${ext}
+  # No spaces. GitHub rewrites a space in an uploaded asset name to a
+  # dot, while electron-builder writes the name into latest.yml with
+  # dashes, so an installer built as "Fortrader AI Setup 0.2.0.exe" is
+  # served as Fortrader.AI.Setup.0.2.0.exe and requested as
+  # Fortrader-AI-Setup-0.2.0.exe. The download 404s, the updater gives
+  # up quietly, and the release looks fine from the outside.
+  artifactName: Fortrader-AI-Setup-${version}.${ext}
   # Single source of truth at the repo root rather than a copy under
   # buildResources, so the two cannot drift. Embedded into the exe and
   # used for the Start Menu and desktop shortcuts.
@@ -40,6 +46,8 @@ win:
   signAndEditExecutable: true
 
 mac:
+  # Spaces here would break the download exactly as above.
+  artifactName: Fortrader-AI-${version}-${arch}.${ext}
   target:
     # Architecture is chosen by scripts/build-mac.sh from `uname -m`
     # rather than pinned here. PyInstaller builds the sidecar for the
