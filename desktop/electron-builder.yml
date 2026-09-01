@@ -84,6 +84,12 @@ publish:
   provider: github
   owner: AviralK98
   repo: fortrader-ai
+  # electron-builder defaults to `draft`, and a draft is invisible to
+  # anyone not signed in with write access to this repository. The
+  # updater in an installed copy fetches anonymously, so against a draft
+  # it gets a 404 and concludes there is nothing newer -- a release that
+  # builds, uploads and reports success while reaching no one.
+  releaseType: release
 
 # Speeds up repeat builds and avoids re-downloading Electron each time.
 electronDownload:
