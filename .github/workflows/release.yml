@@ -132,9 +132,13 @@ jobs:
         working-directory: desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A workflow_dispatch run is a rehearsal: build everything,
+          # check everything, publish nothing.
+          PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
         run: |
           npm run build
-          npx electron-builder --win --config electron-builder.yml --publish always
+          npx electron-builder --win --config electron-builder.yml --publish $PUBLISH
+        shell: bash
 
       - name: Upload installer as a workflow artefact
         uses: actions/upload-artifact@v4
@@ -238,9 +242,12 @@ jobs:
         working-directory: desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A workflow_dispatch run is a rehearsal: build everything,
+          # check everything, publish nothing.
+          PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
         run: |
           npm run build
-          npx electron-builder --mac --config electron-builder.yml --publish always
+          npx electron-builder --mac --config electron-builder.yml --publish $PUBLISH
 
       - name: Upload disk image as a workflow artefact
         uses: actions/upload-artifact@v4
