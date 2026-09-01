@@ -236,6 +236,17 @@ class TestCliLockdown:
 
         assert root in self.kwargs["env"]["PYTHONPATH"]
 
+    def test_no_console_window_is_opened(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # `claude` is a console program. Without this a black window
+        # appears over the chart for the whole of every answer.
+        monkeypatch.setattr(providers.sys, "platform", "win32")
+
+        self.argv(monkeypatch)
+
+        assert self.kwargs["creationflags"] == subprocess.CREATE_NO_WINDOW
+
     def test_a_wedged_process_cannot_hang_the_request(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

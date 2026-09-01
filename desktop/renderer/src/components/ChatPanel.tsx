@@ -112,7 +112,16 @@ export function ChatPanel({ chart }: Props): JSX.Element {
           </div>
         ))}
 
-        {send.isPending && <div className="chat__msg chat__msg--pending">Thinking…</div>}
+        {send.isPending && (
+          <div className="chat__msg chat__msg--pending">
+            <span className="chat__dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            Reading your live data…
+          </div>
+        )}
 
         <div ref={endRef} />
       </div>

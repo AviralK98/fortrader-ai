@@ -67,6 +67,21 @@ CLI_TIMEOUT_SECONDS = 120
 _cli_probe: tuple[bool, str | None] | None = None
 
 
+def _hidden() -> dict[str, Any]:
+    """Spawn without a console window.
+
+    `claude` is a console program. Started from a windowed application it
+    gets a console of its own, which on Windows means a black box appears
+    over the chart for as long as the answer takes and then vanishes. The
+    panel already says it is working; a second window saying nothing is
+    just noise.
+    """
+    if sys.platform == "win32":
+        return {"creationflags": subprocess.CREATE_NO_WINDOW}
+
+    return {}
+
+
 class ChatProvider(Protocol):
     name: str
 
@@ -245,6 +260,7 @@ class CliProvider:
             timeout=CLI_TIMEOUT_SECONDS,
             shell=False,
             env=env,
+            **_hidden(),
             # The CLI waits three seconds for piped input before giving
             # up, and inherits this process's stdin if we say nothing.
             # Closing it explicitly removes both the delay and the
