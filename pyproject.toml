@@ -9,6 +9,18 @@ license = { text = "MIT" }
 testpaths = ["tests/python"]
 pythonpath = ["."]
 addopts = "-q --strict-markers"
+# A captured browser profile is data, not source. It has no tests in it,
+# and collection walking into one has already broken the suite once when
+# a damaged entry there made the whole run unreadable.
+norecursedirs = [
+    "*_browser_profile",
+    "node_modules",
+    "legacy",
+    "release",
+    "dist",
+    "build",
+    ".git",
+]
 filterwarnings = ["error::DeprecationWarning:backend.*"]
 
 [tool.ruff]
