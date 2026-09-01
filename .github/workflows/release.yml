@@ -128,17 +128,12 @@ jobs:
           if (-not $line.Result) { throw 'MCP bridge returned nothing' }
           Write-Host "MCP bridge responded."
 
-      - name: Build and publish the installer
+      - name: Build the installer
         working-directory: desktop
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # A workflow_dispatch run is a rehearsal: build everything,
-          # check everything, publish nothing.
-          PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+        shell: bash
         run: |
           npm run build
-          npx electron-builder --win --config electron-builder.yml --publish $PUBLISH
-        shell: bash
+          npx electron-builder --win --config electron-builder.yml --publish never
 
       - name: Upload installer as a workflow artefact
         uses: actions/upload-artifact@v4
@@ -238,16 +233,11 @@ jobs:
           if [ ! -s mcp-out.txt ]; then echo 'MCP bridge did not respond'; exit 1; fi
           echo "MCP bridge responded."
 
-      - name: Build and publish the disk image
+      - name: Build the disk image
         working-directory: desktop
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # A workflow_dispatch run is a rehearsal: build everything,
-          # check everything, publish nothing.
-          PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
         run: |
           npm run build
-          npx electron-builder --mac --config electron-builder.yml --publish $PUBLISH
+          npx electron-builder --mac --config electron-builder.yml --publish never
 
       - name: Upload disk image as a workflow artefact
         uses: actions/upload-artifact@v4
@@ -257,3 +247,67 @@ jobs:
             release/*.dmg
             release/latest-mac.yml
           if-no-files-found: error
+
+  # Publishing is deliberately not electron-builder's job.
+  #
+  # Its publisher reported success while creating nothing a signed-out
+  # visitor could see, and a release nobody can see is indistinguishable
+  # from no release at all -- the updater in an installed copy fetches
+  # anonymously and gets a 404 either way. Doing it here instead makes
+  # the outcome explicit, and the verification step below fails the run
+  # rather than letting another silent no-op through.
+  publish:
+    needs: [windows, macos]
+    # Rehearsals build and check; only a tag publishes.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefacts
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(artefacts/*/*)
+
+          if [ ${#files[@]} -eq 0 ]; then
+            echo 'No artefacts to publish.'
+            exit 1
+          fi
+
+          echo "Publishing ${#files[@]} files:"
+          printf '  %s\n' "${files[@]}"
+
+          # latest.yml is how an installed copy discovers the update. An
+          # installer without it is invisible, so refuse to publish a
+          # release that would look complete and update nobody.
+          case "${files[*]}" in
+            *latest.yml*) ;;
+            *) echo 'latest.yml is missing; installed copies could not see this release.'; exit 1 ;;
+          esac
+
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo 'Release exists; replacing its assets and making sure it is not a draft.'
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}"               --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$GITHUB_REF_NAME"               --repo "$GITHUB_REPOSITORY" --draft=false
+          else
+            gh release create "$GITHUB_REF_NAME" "${files[@]}"               --repo "$GITHUB_REPOSITORY"               --title "$GITHUB_REF_NAME"               --generate-notes
+          fi
+
+      # Proving it from outside is the whole point: this is the request
+      # an installed copy actually makes.
+      - name: Verify the release is publicly visible
+        run: |
+          set -euo pipefail
+          url="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/latest.yml"
+          code=$(curl -sL -o /dev/null -w '%{http_code}' "$url")
+          if [ "$code" != "200" ]; then
+            echo "An anonymous fetch of latest.yml returned $code, so no installed copy can see this release."
+            exit 1
+          fi
+          echo 'latest.yml is publicly reachable.'
