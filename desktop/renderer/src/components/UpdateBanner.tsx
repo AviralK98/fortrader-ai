@@ -35,6 +35,31 @@ export function UpdateBanner(): JSX.Element | null {
     );
   }
 
+  if (state.status === 'manual' && state.downloadUrl) {
+    return (
+      <div className="update-banner update-banner--ready">
+        <span>
+          Version <strong>{state.version}</strong> is available.
+        </span>
+        {/* An ordinary link: the main process routes target=_blank to the
+            system browser, so no privileged channel is needed to open a
+            download. */}
+        <a
+          className="button button--small"
+          href={state.downloadUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Download
+        </a>
+        <span className="update-banner__note">
+          Open the .dmg and drag the app to Applications, replacing the
+          old one.
+        </span>
+      </div>
+    );
+  }
+
   if (state.status === 'downloading') {
     return (
       <div className="update-banner">

@@ -1157,3 +1157,15 @@ body {
     opacity: 0.6;
   }
 }
+
+/* macOS cannot self-install, so its banner carries the manual step. */
+.update-banner__note {
+  color: var(--text-dim);
+  font-size: 11.5px;
+}
+
+.update-banner a.button {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}

@@ -294,10 +294,14 @@ export interface UpdateState {
     | 'current'
     | 'downloading'
     | 'ready'
+    /** A newer version exists but this platform cannot install it itself. */
+    | 'manual'
     | 'error';
   version?: string;
   percent?: number;
   detail?: string;
+  /** Set only for 'manual': where the user downloads it themselves. */
+  downloadUrl?: string;
 }
 
 /** Everything needed to point Claude Code at this installation. */
