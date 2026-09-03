@@ -221,22 +221,78 @@ an unbounded read would hang the build with no output.
 
 `npm run dev` also works, for development without packaging.
 
+### Gatekeeper rejects every downloaded build
+
+This is not a bug to be fixed in this repository. It is the cost of
+shipping without an Apple Developer ID, and it will be paid by every
+person who downloads the `.dmg` until one is bought.
+
+**What the user sees.** The `.dmg` mounts, the app drags to Applications,
+and opening it gives:
+
+> “Fortrader AI” is damaged and can’t be opened. You should move it to
+> the Bin.
+
+Nothing is damaged. That is how macOS renders a failed Gatekeeper
+assessment, and Move to Bin is the only button it offers.
+
+**Why.** A downloaded file carries `com.apple.quarantine`. Gatekeeper
+assesses anything so marked, and passing requires a signature from a
+Developer ID certificate *plus* notarisation by Apple. This build has an
+ad-hoc signature (`codesign --sign -`), which is not a certificate and
+identifies nobody, so the assessment fails:
+
+```
+$ codesign --force --sign - Probe.app
+$ codesign --verify --deep --strict Probe.app   # passes
+$ spctl --assess --type execute Probe.app
+Probe.app: rejected
+```
+
+`codesign --verify` and `spctl --assess` answer two different questions.
+The first asks whether the signature is intact, the second whether macOS
+will run the thing. Only the second decides.
+
+**The ad-hoc signature is still load-bearing** — see
+`desktop/scripts/adhoc-sign.cjs`. Apple Silicon refuses to execute a
+Mach-O with no signature at all, quarantine or not, so without it even a
+de-quarantined copy would fail. It buys the right to run; it does not buy
+Gatekeeper's approval.
+
+**What does not work.** Right-click → Open, and System Settings → Privacy
+& Security → Open Anyway. Both are escape hatches for an app signed with
+a real Developer ID that merely lacks notarisation. Against a “damaged”
+verdict the button does not appear at all. Do not put either in user
+instructions.
+
+**What does work** is removing the quarantine flag, so Gatekeeper never
+assesses the app:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Fortrader AI.app"
+```
+
+A locally built `.dmg` never leaves the machine and is never marked, so
+`npm run package:mac` output just runs. The problem appears only once a
+build has been downloaded — which means it cannot be caught before a
+release, and CI cannot catch it either.
+
+**The real fix** is a paid Apple Developer Program membership, which
+buys a Developer ID Application certificate; then hardened runtime,
+entitlements, and notarisation. Until then, `docs/release-notes-macos.md` ships with every
+release so the instruction reaches the user with the download.
+
+Note for whoever does buy the certificate: the current
+`codesign --deep` pass does **not** reach the PyInstaller sidecar under
+`Contents/Resources` — its 135 Mach-O files keep the ad-hoc signatures
+PyInstaller gave them, and `--verify --deep --strict` passes regardless.
+Notarisation will reject that. Sign the sidecar inside-out first.
+
 ### What is untested
 
-The macOS path has **never been built or run** — it was written from a
-Windows machine. Expect to fix things on first build. The likely
-candidates:
-
-* **Gatekeeper.** An unsigned `.app` that is *downloaded* gets quarantined
-  and refuses to open; right-click → Open, or
-  `xattr -dr com.apple.quarantine "/Applications/Fortrader AI.app"`. A
-  locally built one carries no quarantine flag and just runs.
-* **Notarisation.** Required to distribute a Mac build to anyone else,
-  and it needs a paid Apple Developer account. Running your own build
-  locally does not.
-* **Architecture.** Handled automatically — the script reads `uname -m`
-  and targets the same architecture PyInstaller just built for. Nothing
-  to change for an Intel Mac.
+* **Intel Macs.** Handled automatically — the script reads `uname -m` and
+  targets the same architecture PyInstaller just built for, so there is
+  nothing to change. It has only ever been run on Apple Silicon.
 
 ## Icons
 

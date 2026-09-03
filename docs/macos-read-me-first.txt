@@ -1,0 +1,65 @@
+Fortrader AI for macOS
+======================
+
+If you open the app and macOS says
+
+    "Fortrader AI" is damaged and can't be opened.
+    You should move it to the Bin.
+
+nothing is damaged and nothing is wrong with your download.
+
+
+WHY IT HAPPENS
+--------------
+
+This app is not signed with an Apple Developer ID, because that
+requires a paid Apple Developer Program membership.
+
+macOS marks every downloaded file as "quarantined" and refuses to run
+quarantined apps that Apple has not certified. "Damaged" is simply how
+that refusal is worded. It is the same message you would get for a
+genuinely corrupt file, which is why it is so alarming.
+
+
+HOW TO INSTALL
+--------------
+
+1. Drag "Fortrader AI" onto the Applications folder, as usual.
+
+2. Open Terminal (press Cmd+Space, type Terminal, press Return).
+
+3. Copy this line, paste it into Terminal, and press Return:
+
+       xattr -dr com.apple.quarantine "/Applications/Fortrader AI.app"
+
+   It prints nothing. That means it worked.
+
+4. Open Fortrader AI from Applications. It will start normally, now
+   and every time after.
+
+You only ever do this once per installed version.
+
+
+WHAT THAT COMMAND DOES
+----------------------
+
+It removes the "downloaded from the internet" marker from the app, so
+macOS stops asking Apple whether the app is approved. It changes
+nothing else, needs no password, and affects no other application.
+
+Only run it on software you trust and obtained from somewhere you
+trust. For this app, that means the official releases page:
+
+    https://github.com/AviralK98/fortrader-ai/releases
+
+
+WHAT WILL NOT WORK
+------------------
+
+Right-clicking the app and choosing Open, and System Settings >
+Privacy & Security > "Open Anyway", are the usual ways around Apple's
+warnings. Neither works here: they apply to apps that carry a real
+developer certificate but have not been reviewed by Apple. This app
+has no certificate, so macOS does not offer that choice at all.
+
+The Terminal command above is the only way.

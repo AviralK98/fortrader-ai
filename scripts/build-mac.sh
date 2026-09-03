@@ -113,9 +113,24 @@ cat <<'NOTE'
 
 Install it by opening the .dmg and dragging Fortrader AI to Applications.
 
-The build is unsigned. A locally built app runs normally; one that has
-been *downloaded* is quarantined by Gatekeeper and needs either
-right-click -> Open, or:
+This copy will just run: it was built here, never downloaded, so macOS
+did not mark it with com.apple.quarantine and Gatekeeper never looks at
+it.
+
+Anyone you send the .dmg to has the opposite experience. There is no
+Developer ID, so the app carries only an ad-hoc signature, and a
+quarantined ad-hoc app is refused with:
+
+    "Fortrader AI" is damaged and can't be opened.
+    You should move it to the Bin.
+
+Right-click -> Open does not help, and neither does Open Anyway in
+System Settings; macOS does not offer either for this verdict. The one
+thing that works is clearing the quarantine flag:
 
     xattr -dr com.apple.quarantine "/Applications/Fortrader AI.app"
+
+The .dmg carries READ ME FIRST.txt saying exactly that, so you do not
+have to explain it every time. Background: docs/development.md,
+"Gatekeeper rejects every downloaded build".
 NOTE

@@ -263,6 +263,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # The release body is read from docs/release-notes-macos.md below,
+      # so the repository has to be present. Nothing else here needs it.
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: artefacts
@@ -291,12 +295,39 @@ jobs:
             *) echo 'latest.yml is missing; installed copies could not see this release.'; exit 1 ;;
           esac
 
+          # An unsigned macOS build is refused by Gatekeeper with "is
+          # damaged and can't be opened", whose only offered action is
+          # Move to Bin. Someone who hits that and has not been told why
+          # concludes the download is corrupt and leaves. The fix is one
+          # command, so it leads the release body.
+          notes=docs/release-notes-macos.md
+
+          if [ ! -s "$notes" ]; then
+            echo "$notes is missing; every macOS download would look broken."
+            exit 1
+          fi
+
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             echo 'Release exists; replacing its assets and making sure it is not a draft.'
-            gh release upload "$GITHUB_REF_NAME" "${files[@]}"               --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "$GITHUB_REF_NAME"               --repo "$GITHUB_REPOSITORY" --draft=false
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false
+
+            # --notes-file replaces the body outright, so applying it
+            # unconditionally here would delete the generated changelog
+            # on every re-run. Prepend instead, and only once.
+            body=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body)
+
+            if printf '%s' "$body" | grep -qF 'Installing on macOS'; then
+              echo 'Install instructions already present; leaving the body alone.'
+            else
+              echo 'Prepending install instructions to the existing body.'
+              { cat "$notes"; printf '\n'; printf '%s' "$body"; } > combined-notes.md
+              gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file combined-notes.md
+            fi
           else
-            gh release create "$GITHUB_REF_NAME" "${files[@]}"               --repo "$GITHUB_REPOSITORY"               --title "$GITHUB_REF_NAME"               --generate-notes
+            # GitHub pre-pends a supplied body to the --generate-notes
+            # output rather than replacing it, so the changelog follows.
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --notes-file "$notes" --generate-notes
           fi
 
       # Proving it from outside is the whole point: these are the two

@@ -39,8 +39,10 @@ just accumulating. The application reports that honestly rather than
 filling the gap with numbers — statistics are withheld below the
 threshold, not estimated.
 
-The macOS build is written and its platform logic is tested, but it has
-**never been built or run on a Mac**.
+The macOS build now builds and runs on Apple Silicon. It is unsigned, so
+a *downloaded* copy is refused by Gatekeeper until the quarantine flag is
+cleared — see [Installing on macOS](#installing-on-macos). Intel Macs
+remain untested.
 
 ## Quick start
 
@@ -170,6 +172,35 @@ Runs TypeScript typecheck, ESLint, Vitest, mypy (strict), Ruff and pytest.
 The Python suite runs against captured fixtures and never touches a real
 Fortrade account.
 
+## Installing on macOS
+
+Open the `.dmg` and drag **Fortrader AI** to Applications. Then, before
+first launch, open Terminal and run:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Fortrader AI.app"
+```
+
+It prints nothing when it works. Skip it and macOS says:
+
+> “Fortrader AI” is damaged and can’t be opened. You should move it to
+> the Bin.
+
+Nothing is damaged. There is no Apple Developer ID behind this build, and
+that is the message macOS shows for an app it cannot attribute to a
+certified developer. The command removes the “downloaded from the
+internet” marker so macOS stops asking Apple about it; it needs no
+password and touches nothing else.
+
+Right-click → Open and System Settings → Privacy & Security → **Open
+Anyway** are the usual workarounds and neither applies here — macOS
+offers them only for apps that do carry a developer certificate. The
+`.dmg` ships a `READ ME FIRST.txt` repeating all of this.
+
+Only run that command on software you trust. For this app, that means a
+`.dmg` from
+[the releases page](https://github.com/AviralK98/fortrader-ai/releases).
+
 ## Building an installer
 
 ```powershell
@@ -185,8 +216,11 @@ admin prompt; macOS is drag-to-Applications.
 
 Build each on the platform it targets — PyInstaller cannot cross-compile.
 
-The installer is currently **unsigned** — Windows SmartScreen will warn on
-first run until a code-signing certificate is supplied. See
+Both installers are **unsigned**. Windows SmartScreen warns on first run
+until a code-signing certificate is supplied; macOS refuses to open a
+downloaded build at all until its quarantine flag is cleared, as above.
+Removing either warning needs a paid certificate — Windows code signing,
+and the Apple Developer Program for macOS. See
 [docs/development.md](docs/development.md#building-the-windows-installer).
 
 ## Disclaimer

@@ -64,11 +64,50 @@ mac:
   # electron-builder looking for a certificate it will not find.
   #
   # It does NOT mean the app ships unsigned: afterPack applies an ad-hoc
-  # signature. Apple Silicon refuses to run a binary with no signature
-  # at all, which is what produced "is damaged and can't be opened" --
-  # a dead end whose only offered action is Move to Trash. Ad-hoc turns
-  # that into the ordinary unidentified-developer prompt.
+  # signature, which Apple Silicon requires before it will execute a
+  # Mach-O at all.
+  #
+  # That signature does NOT get past Gatekeeper. Ad-hoc identifies
+  # nobody, so a *downloaded* build -- which macOS marks with
+  # com.apple.quarantine -- is still assessed and still rejected:
+  #
+  #   codesign --verify --deep --strict App.app   # passes
+  #   spctl --assess --type execute App.app       # rejected
+  #
+  # The user sees "is damaged and can't be opened", offering only Move
+  # to Bin, and neither right-click -> Open nor Open Anyway is available
+  # to them -- those rescue an app with a real certificate that merely
+  # lacks notarisation. Only `xattr -dr com.apple.quarantine` clears it,
+  # which is why every download ships with READ ME FIRST.txt below.
+  #
+  # Fixing it properly needs the Apple Developer Program. See
+  # docs/development.md, "Gatekeeper rejects every downloaded build".
   identity: null
+
+dmg:
+  # Three icons rather than the default two, so the window is widened and
+  # the drag target moved out to match. The read-me sits below the app ->
+  # Applications drag path rather than in it.
+  window:
+    width: 620
+    height: 420
+  contents:
+    # No `path`: electron-builder substitutes the built .app.
+    - x: 150
+      y: 180
+      type: file
+    - x: 470
+      y: 180
+      type: link
+      path: /Applications
+    # The only thing that reaches a user whose app will not open. The
+    # GitHub release notes say the same, but someone who saved the .dmg
+    # and came back to it later has no release page in front of them.
+    - x: 310
+      y: 330
+      type: file
+      path: ../docs/macos-read-me-first.txt
+      name: READ ME FIRST.txt
 
 # Runs for macOS only; see the script for why it is not optional.
 afterPack: ./scripts/adhoc-sign.cjs
