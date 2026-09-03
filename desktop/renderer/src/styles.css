@@ -49,6 +49,28 @@ body {
   height: 100%;
 }
 
+/* Each child is pinned to its row rather than taking the next free one.
+   The update banner renders nothing when there is no update, and without
+   these the remaining three children slide up a row each: the workspace
+   lands on `auto` and collapses to its content, while the account bar
+   lands on `1fr` and absorbs the rest of the window as dead space. The
+   taller the window, the worse it looks. */
+.status-strip {
+  grid-row: 1;
+}
+
+.update-banner {
+  grid-row: 2;
+}
+
+.workspace {
+  grid-row: 3;
+}
+
+.account-bar {
+  grid-row: 4;
+}
+
 /* ---------------------------------------------------------------- */
 /* Update banner                                                     */
 /* ---------------------------------------------------------------- */

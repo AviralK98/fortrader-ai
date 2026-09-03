@@ -1,6 +1,6 @@
 {
   "name": "fortrader-ai",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Deterministic market research desktop application for Web Fortrader. Read-only.",
   "license": "MIT",
   "private": true,
