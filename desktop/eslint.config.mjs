@@ -54,4 +54,19 @@ export default tseslint.config(
     },
     rules: { 'no-console': 'off' },
   },
+
+  // electron-builder loads its hooks with require(), so those are
+  // CommonJS by necessity rather than by choice. Linting them as ES
+  // modules reports every require() and every Node global as an error.
+  {
+    files: ['scripts/**/*.cjs'],
+    languageOptions: {
+      globals: { ...globals.node },
+      parserOptions: { ecmaVersion: 2023, sourceType: 'commonjs' },
+    },
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
 );

@@ -60,10 +60,18 @@ mac:
   # binary to keep in sync. 1024px is the size macOS wants for Retina.
   icon: ../export/mac/icon_1024x1024.png
   #
-  # The app spawns a child process and opens network connections. Under a
-  # hardened runtime those need entitlements; unsigned local builds do
-  # not, which is why signing is off by default here.
+  # No Developer ID, so no real signature. `identity: null` stops
+  # electron-builder looking for a certificate it will not find.
+  #
+  # It does NOT mean the app ships unsigned: afterPack applies an ad-hoc
+  # signature. Apple Silicon refuses to run a binary with no signature
+  # at all, which is what produced "is damaged and can't be opened" --
+  # a dead end whose only offered action is Move to Trash. Ad-hoc turns
+  # that into the ordinary unidentified-developer prompt.
   identity: null
+
+# Runs for macOS only; see the script for why it is not optional.
+afterPack: ./scripts/adhoc-sign.cjs
 
 nsis:
   oneClick: false
