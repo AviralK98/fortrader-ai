@@ -32,6 +32,7 @@ import { CandleCapture } from './candle-capture';
 import { dumpFortradeDom, isDomProbeEnabled } from './dom-probe';
 import { FortradeAdapter } from './fortrade-adapter';
 import { FortradeView } from './fortrade-view';
+import { applyLoginShellPath } from './login-shell-path';
 import { NetworkProbe, isNetworkProbeEnabled } from './network-probe';
 import { Updater } from './updater';
 import { registerIpc, safeSend, unregisterIpc } from './ipc';
@@ -339,6 +340,12 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(async () => {
+    // Before the backend spawns and inherits this environment. A .app
+    // opened from Finder gets LaunchServices' PATH, which never saw the
+    // user's shell profile, so tools installed to ~/.local/bin -- Claude
+    // Code among them -- are invisible until this widens it.
+    applyLoginShellPath();
+
     applyRendererCsp();
 
     wireStateBroadcast();

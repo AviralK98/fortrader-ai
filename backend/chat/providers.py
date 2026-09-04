@@ -167,6 +167,65 @@ def _mcp_config_path() -> Path:
     return path
 
 
+def _claude_candidates() -> tuple[Path, ...]:
+    """Where Claude Code lands when PATH does not say."""
+    home = Path.home()
+
+    # Windows needs the extension; a bare `claude` there is the shell
+    # script for WSL and cannot be spawned by CreateProcess.
+    names = ("claude.exe", "claude") if os.name == "nt" else ("claude",)
+
+    directories = (
+        # Claude Code's own installer, and the default it suggests.
+        home / ".local" / "bin",
+        # Older installs, and what `claude migrate-installer` produces.
+        home / ".claude" / "local",
+        # npm -g with a user-owned prefix.
+        home / ".npm-global" / "bin",
+        Path("/opt/homebrew/bin"),
+        Path("/usr/local/bin"),
+    )
+
+    return tuple(d / n for d in directories for n in names)
+
+
+def find_claude() -> str | None:
+    """Locate the Claude Code CLI.
+
+    `shutil.which` searches PATH, which is correct in a terminal and
+    wrong in a packaged app. macOS starts a .app from LaunchServices
+    with an environment that never sourced .zshrc, so a binary in
+    ~/.local/bin -- where Claude Code installs itself -- is not on the
+    PATH this process inherited, and the app ends up telling a user who
+    has Claude Code that they do not.
+
+    The desktop shell widens PATH from the login shell before the
+    backend starts, which fixes the common case. This is the second
+    line: it still answers correctly when there is no login shell to
+    ask, when the profile is unusual, or when the backend is run on its
+    own.
+
+    Only PATH gets a bare name; the fallbacks are absolute and are
+    checked for being executable files, so nothing here can resolve to
+    a directory or to something the user cannot run.
+    """
+    found = shutil.which("claude")
+
+    if found is not None:
+        return found
+
+    for candidate in _claude_candidates():
+        try:
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return str(candidate)
+        except OSError:
+            # An unreadable home or a broken symlink is not an error
+            # here -- it just means this candidate is not the answer.
+            continue
+
+    return None
+
+
 class CliProvider:
     """One locked-down `claude -p` invocation per question."""
 
@@ -178,7 +237,7 @@ class CliProvider:
         if _cli_probe is not None:
             return _cli_probe
 
-        binary = shutil.which("claude")
+        binary = find_claude()
 
         if binary is None:
             # Deliberately not cached. Someone who installs Claude Code
@@ -186,7 +245,8 @@ class CliProvider:
             # PATH lookup is cheap enough to repeat.
             return (
                 False,
-                "Claude Code is not installed, or `claude` is not on PATH.",
+                "Claude Code is not installed, or `claude` could not be "
+                "found on PATH or in a standard install location.",
             )
 
         # Actually run it. Whether a .cmd shim or a shell wrapper can be
@@ -210,7 +270,7 @@ class CliProvider:
         return _cli_probe
 
     def complete(self, system: str, prompt: str) -> str:
-        binary = shutil.which("claude")
+        binary = find_claude()
 
         if binary is None:
             raise RuntimeError("The Claude Code CLI disappeared from PATH.")

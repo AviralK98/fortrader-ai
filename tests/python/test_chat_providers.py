@@ -345,6 +345,11 @@ class TestSelection:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(providers.shutil, "which", lambda _: None)
+        # find_claude also checks absolute install locations, so an
+        # empty PATH is no longer the whole of "not installed" -- and
+        # without this the test passes or fails on whether the machine
+        # running it happens to have Claude Code.
+        monkeypatch.setattr(providers, "_claude_candidates", tuple)
 
         usable, detail = providers.CLI.available()
 
@@ -357,6 +362,7 @@ class TestSelection:
         # Installing Claude Code while the app is open should take effect
         # without a restart.
         monkeypatch.setattr(providers.shutil, "which", lambda _: None)
+        monkeypatch.setattr(providers, "_claude_candidates", tuple)
         assert providers.CLI.available()[0] is False
 
         monkeypatch.setattr(providers.shutil, "which", lambda _: "/usr/bin/claude")
@@ -412,3 +418,85 @@ class TestMcpConfig:
         )
 
         assert "--mcp" in config["mcpServers"][providers.MCP_SERVER_NAME]["args"]
+
+
+class TestFindClaude:
+    """A GUI app does not inherit the shell's PATH.
+
+    macOS launches a .app from LaunchServices, which never sources
+    .zshrc, so ~/.local/bin -- where Claude Code installs itself -- is
+    absent from PATH and `which` finds nothing. Reporting "not
+    installed" to someone who has it installed is the bug these cover.
+    """
+
+    def test_prefers_path_when_which_finds_it(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            providers.shutil, "which", lambda _: "/usr/bin/claude"
+        )
+
+        assert providers.find_claude() == "/usr/bin/claude"
+
+    def test_falls_back_to_the_installer_location(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(providers.shutil, "which", lambda _: None)
+
+        binary = tmp_path / ".local" / "bin" / "claude"
+        binary.parent.mkdir(parents=True)
+        binary.write_text("#!/bin/sh\n", encoding="utf-8")
+        binary.chmod(0o755)
+
+        monkeypatch.setattr(providers.Path, "home", lambda: tmp_path)
+
+        assert providers.find_claude() == str(binary)
+
+    def test_ignores_a_candidate_that_is_not_executable(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(providers.shutil, "which", lambda _: None)
+
+        binary = tmp_path / ".local" / "bin" / "claude"
+        binary.parent.mkdir(parents=True)
+        binary.write_text("not runnable", encoding="utf-8")
+        binary.chmod(0o644)
+
+        monkeypatch.setattr(providers.Path, "home", lambda: tmp_path)
+
+        assert providers.find_claude() is None
+
+    def test_ignores_a_directory_named_claude(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(providers.shutil, "which", lambda _: None)
+
+        # Executable, and would satisfy an os.access check on its own.
+        (tmp_path / ".local" / "bin" / "claude").mkdir(parents=True)
+
+        monkeypatch.setattr(providers.Path, "home", lambda: tmp_path)
+
+        assert providers.find_claude() is None
+
+    def test_returns_none_when_nothing_is_installed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(providers.shutil, "which", lambda _: None)
+        # /usr/local/bin and /opt/homebrew/bin are absolute, so the real
+        # candidate list would make this depend on the test machine.
+        monkeypatch.setattr(providers, "_claude_candidates", tuple)
+
+        assert providers.find_claude() is None
+
+    def test_the_message_no_longer_blames_path_alone(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(providers.shutil, "which", lambda _: None)
+        monkeypatch.setattr(providers, "_claude_candidates", tuple)
+        monkeypatch.setattr(providers, "_cli_probe", None)
+
+        ok, message = providers.CliProvider().available()
+
+        assert ok is False
+        assert message is not None
+        assert "standard install location" in message
