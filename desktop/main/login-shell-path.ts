@@ -15,6 +15,11 @@
  * The fix is to ask the login shell what its PATH is and adopt it.
  * Windows is skipped: a GUI process there already inherits the user and
  * machine PATH from the registry, so there is nothing to recover.
+ *
+ * Both functions take the platform as an argument defaulting to the real
+ * one. Callers never pass it; tests do, so the POSIX branch is exercised
+ * on a Windows runner and the Windows branch on a Mac -- the same reason
+ * tests/python/test_platforms.py fakes sys.platform rather than skipping.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -43,8 +48,10 @@ const TIMEOUT_MS = 5_000;
  * be asked -- never throws, because failing to widen PATH degrades one
  * optional feature and must not stop the app from starting.
  */
-export function readLoginShellPath(): string | null {
-  if (process.platform === 'win32') return null;
+export function readLoginShellPath(
+  platform: NodeJS.Platform = process.platform,
+): string | null {
+  if (platform === 'win32') return null;
 
   const shell = process.env.SHELL;
 
@@ -95,8 +102,10 @@ export function readLoginShellPath(): string | null {
  * backend sidecar spawns with `...process.env`, so it picks this up
  * without knowing the function exists.
  */
-export function applyLoginShellPath(): void {
-  const fromShell = readLoginShellPath();
+export function applyLoginShellPath(
+  platform: NodeJS.Platform = process.platform,
+): void {
+  const fromShell = readLoginShellPath(platform);
 
   if (fromShell === null) return;
 

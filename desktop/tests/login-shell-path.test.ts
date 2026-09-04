@@ -47,7 +47,7 @@ describe('readLoginShellPath', () => {
   it('extracts the value from between the sentinels', () => {
     execFileSync.mockReturnValue(wrap('/a:/b'));
 
-    expect(readLoginShellPath()).toBe('/a:/b');
+    expect(readLoginShellPath('darwin')).toBe('/a:/b');
   });
 
   it('ignores whatever the profile printed first', () => {
@@ -57,7 +57,7 @@ describe('readLoginShellPath', () => {
       wrap('/a:/b', 'Restored session: Fri  4 Sep 2026 01:04:39 BST\n'),
     );
 
-    expect(readLoginShellPath()).toBe('/a:/b');
+    expect(readLoginShellPath('darwin')).toBe('/a:/b');
   });
 
   it('returns null rather than throwing when the shell fails', () => {
@@ -65,19 +65,28 @@ describe('readLoginShellPath', () => {
       throw new Error('profile exploded');
     });
 
-    expect(readLoginShellPath()).toBeNull();
+    expect(readLoginShellPath('darwin')).toBeNull();
   });
 
   it('returns null when the sentinels are absent', () => {
     execFileSync.mockReturnValue('no markers here');
 
-    expect(readLoginShellPath()).toBeNull();
+    expect(readLoginShellPath('darwin')).toBeNull();
   });
 
   it('returns null when SHELL is unset', () => {
     delete process.env.SHELL;
 
-    expect(readLoginShellPath()).toBeNull();
+    expect(readLoginShellPath('darwin')).toBeNull();
+    expect(execFileSync).not.toHaveBeenCalled();
+  });
+
+  it('does not run a shell on Windows', () => {
+    // A GUI process there already inherits the user and machine PATH
+    // from the registry, and -lic would be meaningless to cmd.exe.
+    execFileSync.mockReturnValue(wrap('/a:/b'));
+
+    expect(readLoginShellPath('win32')).toBeNull();
     expect(execFileSync).not.toHaveBeenCalled();
   });
 });
@@ -87,7 +96,7 @@ describe('applyLoginShellPath', () => {
     process.env.PATH = '/usr/bin:/bin';
     execFileSync.mockReturnValue(wrap('/home/u/.local/bin:/usr/bin'));
 
-    applyLoginShellPath();
+    applyLoginShellPath('darwin');
 
     expect(process.env.PATH).toBe('/usr/bin:/bin:/home/u/.local/bin');
   });
@@ -98,7 +107,7 @@ describe('applyLoginShellPath', () => {
     process.env.PATH = '/app/resources/bin:/usr/bin';
     execFileSync.mockReturnValue(wrap('/usr/bin:/opt/homebrew/bin'));
 
-    applyLoginShellPath();
+    applyLoginShellPath('darwin');
 
     expect(process.env.PATH).toBe(
       '/app/resources/bin:/usr/bin:/opt/homebrew/bin',
@@ -109,7 +118,7 @@ describe('applyLoginShellPath', () => {
     process.env.PATH = '/usr/bin:/bin';
     execFileSync.mockReturnValue(wrap('/bin:/usr/bin'));
 
-    applyLoginShellPath();
+    applyLoginShellPath('darwin');
 
     expect(process.env.PATH).toBe('/usr/bin:/bin');
   });
@@ -120,8 +129,17 @@ describe('applyLoginShellPath', () => {
       throw new Error('nope');
     });
 
-    applyLoginShellPath();
+    applyLoginShellPath('darwin');
 
     expect(process.env.PATH).toBe('/usr/bin:/bin');
+  });
+
+  it('leaves PATH untouched on Windows', () => {
+    process.env.PATH = 'C:\\Windows\\system32';
+    execFileSync.mockReturnValue(wrap('/a:/b'));
+
+    applyLoginShellPath('win32');
+
+    expect(process.env.PATH).toBe('C:\\Windows\\system32');
   });
 });

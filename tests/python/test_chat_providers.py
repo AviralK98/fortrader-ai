@@ -12,6 +12,7 @@ argv we construct, not Anthropic's CLI.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -452,6 +453,11 @@ class TestFindClaude:
 
         assert providers.find_claude() == str(binary)
 
+    @pytest.mark.skipif(
+        os.name == "nt",
+        reason="Windows has no execute bit: os.access(X_OK) is true for "
+        "any file that exists, so there is nothing to ignore.",
+    )
     def test_ignores_a_candidate_that_is_not_executable(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
