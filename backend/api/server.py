@@ -65,7 +65,7 @@ from backend.storage.repositories import (
 #: How often a full market snapshot is written to the database.
 SNAPSHOT_INTERVAL_SECONDS = 300
 
-VERSION = "0.2.5"
+VERSION = "0.2.6"
 
 # Bars needed before analysis over a series is considered reliable. EMA 200
 # alone consumes 200 closes before producing its first meaningful value.
