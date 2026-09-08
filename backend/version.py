@@ -6,4 +6,4 @@ start fast; importing `backend.api.server` for a string would drag in
 FastAPI, uvicorn and pandas -- about two seconds, every run.
 """
 
-VERSION = "0.4.0"
+VERSION = "0.4.1"

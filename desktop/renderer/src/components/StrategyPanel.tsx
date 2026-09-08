@@ -68,6 +68,9 @@ const FIELDS: Field[] = [
 
 const TIMEFRAMES = ['M1', 'M5', 'M15', 'H1'] as const;
 
+/** The strategy the app ships with; stopping anything returns here. */
+const BUILTIN_ID = 'builtin';
+
 function Editor({
   draft,
   onChange,
@@ -303,6 +306,19 @@ export function StrategyPanel(): JSX.Element {
                       disabled={activate.isPending}
                     >
                       Use this
+                    </button>
+                  )}
+                  {/* Only on the one in use, and never on the built-in:
+                      that is what stopping returns you to, so there is
+                      nothing to stop. */}
+                  {strategy.id === activeId && !strategy.builtin && (
+                    <button
+                      type="button"
+                      className="button button--small"
+                      onClick={() => activate.mutate(BUILTIN_ID)}
+                      disabled={activate.isPending}
+                    >
+                      Stop using
                     </button>
                   )}
                   {strategy.kind !== 'script' && (
