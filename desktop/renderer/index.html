@@ -5,17 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fortrader AI</title>
     <script>
-      // Before first paint: reading this in React would render one frame
-      // in the default palette and then swap, which reads as a flicker.
-      try {
-        var saved = localStorage.getItem('fortrader.theme');
-        document.documentElement.dataset.theme =
-          ['dark', 'light', 'fortrade', 'midnight'].indexOf(saved) >= 0
-            ? saved
-            : 'dark';
-      } catch (e) {
-        document.documentElement.dataset.theme = 'dark';
-      }
+      // Applied before first paint. Reading this in React renders one
+      // frame in the default palette and then swaps, which reads as a
+      // flicker on every launch. Kept deliberately small and in sync
+      // with appearance.ts.
+      (function () {
+        var root = document.documentElement;
+        var presets = ['fortrade', 'aurora', 'graphite', 'oled', 'frost', 'paper'];
+        var accents = {
+          teal: ['#2ee6c5', '#14b8a6'],
+          blue: ['#4c9aff', '#2f6fd0'],
+          violet: ['#a78bfa', '#7c5cf0'],
+          green: ['#35c98b', '#16a06a'],
+          amber: ['#f0b429', '#d18f06'],
+          rose: ['#fb7185', '#e11d48'],
+          indigo: ['#818cf8', '#4f46e5'],
+        };
+        var radii = { sharp: '4px', soft: '10px', round: '18px' };
+        var a = {};
+
+        try {
+          a = JSON.parse(localStorage.getItem('fortrader.appearance') || '{}');
+        } catch (e) {
+          a = {};
+        }
+
+        root.dataset.theme =
+          presets.indexOf(a.preset) >= 0 ? a.preset : 'fortrade';
+        root.dataset.motion = a.motion || 'subtle';
+        root.dataset.pointer = a.pointerLight === false ? 'off' : 'on';
+
+        var accent = accents[a.accent] || accents.teal;
+        root.style.setProperty('--accent', accent[0]);
+        root.style.setProperty('--accent-strong', accent[1]);
+        root.style.setProperty('--radius', radii[a.radius] || radii.soft);
+
+        var g = (typeof a.glass === 'number' ? a.glass : 55) / 100;
+        root.style.setProperty('--glass-blur', (g * 22).toFixed(1) + 'px');
+        root.style.setProperty('--glass-alpha', (0.92 - g * 0.35).toFixed(3));
+        root.style.setProperty('--glass-edge', (0.06 + g * 0.1).toFixed(3));
+      })();
     </script>
   </head>
   <body>

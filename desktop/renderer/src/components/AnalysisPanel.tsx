@@ -14,6 +14,7 @@ import type {
 } from '../../../shared/types';
 import { BacktestPanel } from './BacktestPanel';
 import { ChatPanel } from './ChatPanel';
+import { usePointerLight } from '../usePointerLight';
 import { StrategyPanel } from './StrategyPanel';
 import { CoveragePanel } from './CoveragePanel';
 import { IndicatorsPanel } from './IndicatorsPanel';
@@ -138,8 +139,15 @@ export function AnalysisPanel({
 }: Props): JSX.Element {
   const chartMeta = status?.stale === false ? 'live' : undefined;
 
+  // Only attaches a listener when the effect is switched on, so the
+  // setting removes the work rather than hiding the result.
+  const lightRef = usePointerLight<HTMLElement>(
+    document.documentElement.dataset.pointer !== 'off',
+  );
+
   return (
-    <aside className="analysis-panel">
+    <aside className="analysis-panel" ref={lightRef}>
+      <div className="pointer-light" aria-hidden="true" />
       {/* The signal is the headline output, so it leads. Supporting
           measurements and raw market data sit beneath it. */}
       <h2 className="panel-title">AI Market Analysis</h2>
