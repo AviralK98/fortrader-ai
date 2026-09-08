@@ -1,6 +1,7 @@
 import type { JSX } from 'react';
 
 import type { ComponentStatus, SystemStatus } from '../../../shared/types';
+import { ThemePicker } from './ThemePicker';
 
 interface Props {
   status: SystemStatus | undefined;
@@ -75,6 +76,8 @@ export function StatusStrip({ status, backendReachable }: Props): JSX.Element {
           value={status?.analysis_engine === 'READY' ? 'Ready' : 'Pending'}
         />
         <Indicator label="Data" state={data.state} value={data.value} />
+
+        <ThemePicker />
       </div>
     </header>
   );

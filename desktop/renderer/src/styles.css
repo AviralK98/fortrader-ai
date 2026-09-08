@@ -1,26 +1,145 @@
 /* Fortrader AI — desktop shell styling.
-   Dark by design: this sits beside a trading terminal all day. */
+
+   Every colour is a token. Themes swap the tokens on [data-theme] and
+   nothing below this block needs to know which one is active.
+
+   Only this panel is themed: Fortrade's terminal is a native view
+   painted over the page and keeps its own dark styling regardless, so
+   the dark themes sit beside it more comfortably than Light does. */
+
+/* Inter and JetBrains Mono, bundled rather than fetched: the production
+   CSP is default-src 'self', so a font from a CDN is simply blocked.
+   Both are variable, so one file per family covers every weight. */
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/inter.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./assets/fonts/jetbrains-mono.woff2') format('woff2');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
+  /* Dark — the default. */
   --bg: #0b0f14;
   --bg-panel: #111823;
   --bg-raised: #16202e;
+  --bg-inset: rgb(0 0 0 / 25%);
   --border: #223044;
+  --border-strong: #2c3d55;
   --text: #e6edf6;
   --text-dim: #8b9bb0;
-  --text-faint: #5f7186;
+  --text-faint: #74869b;
 
   --accent: #4c9aff;
+  --accent-strong: #2f6fd0;
+  --accent-soft: rgb(76 154 255 / 12%);
   --positive: #35c98b;
   --negative: #f2545b;
   --warning: #e8a33d;
 
-  --radius: 8px;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow-md: 0 4px 16px rgb(0 0 0 / 35%);
+  --glow: 0 0 0 1px rgb(76 154 255 / 18%);
+
+  --radius: 10px;
+  --radius-sm: 6px;
   --header-height: 52px;
   --footer-height: 56px;
 
-  --font-ui: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Cascadia Mono', 'Consolas', ui-monospace, monospace;
+  --font-ui: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Mono', ui-monospace, monospace;
+
+  /* Motion. Every transition reads from these so reduced-motion can
+     switch the whole interface off in one place. */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --fast: 120ms;
+  --slow: 240ms;
+
+  color-scheme: dark;
+}
+
+/* Deep navy, following the platform's own palette. */
+[data-theme='fortrade'] {
+  --bg: #071322;
+  --bg-panel: #0c1c30;
+  --bg-raised: #11263e;
+  --bg-inset: rgb(0 0 0 / 28%);
+  --border: #1c3550;
+  --border-strong: #274563;
+  --text: #e8f1fb;
+  --text-dim: #8fa8c2;
+  --text-faint: #6988a5;
+
+  --accent: #2f8fff;
+  --accent-strong: #1f6fd8;
+  --accent-soft: rgb(47 143 255 / 14%);
+  --positive: #22c993;
+  --negative: #ff4d5e;
+  --warning: #f0a93c;
+
+  --shadow-md: 0 4px 18px rgb(0 8 20 / 50%);
+  --glow: 0 0 0 1px rgb(47 143 255 / 22%);
+
+  color-scheme: dark;
+}
+
+/* Near-black, cool cast, for low light. */
+[data-theme='midnight'] {
+  --bg: #05070a;
+  --bg-panel: #0a0e14;
+  --bg-raised: #0f151d;
+  --bg-inset: rgb(0 0 0 / 40%);
+  --border: #1a222d;
+  --border-strong: #26313f;
+  --text: #dfe7f0;
+  --text-dim: #7d8b9c;
+  --text-faint: #737f8d;
+
+  --accent: #6aa9ff;
+  --accent-strong: #3d7fd6;
+  --accent-soft: rgb(106 169 255 / 10%);
+  --positive: #3ad19a;
+  --negative: #ff5f68;
+  --warning: #eeae4c;
+
+  --shadow-md: 0 4px 20px rgb(0 0 0 / 60%);
+
+  color-scheme: dark;
+}
+
+/* Light. Note it sits next to Fortrade's dark chart, which does not
+   follow this choice. */
+[data-theme='light'] {
+  --bg: #f4f6fa;
+  --bg-panel: #ffffff;
+  --bg-raised: #f7f9fc;
+  --bg-inset: rgb(15 25 40 / 4%);
+  --border: #dbe2ec;
+  --border-strong: #c3cedd;
+  --text: #101826;
+  --text-dim: #4d5f75;
+  --text-faint: #66768a;
+
+  --accent: #1668d8;
+  --accent-strong: #0f4fa8;
+  --accent-soft: rgb(22 104 216 / 10%);
+  --positive: #0f9d63;
+  --negative: #d92d3a;
+  --warning: #b5730a;
+
+  --shadow-sm: 0 1px 2px rgb(15 25 40 / 8%);
+  --shadow-md: 0 6px 20px rgb(15 25 40 / 10%);
+  --glow: 0 0 0 1px rgb(22 104 216 / 16%);
+
+  color-scheme: light;
 }
 
 * {
@@ -1377,4 +1496,226 @@ body {
   background: rgb(242 84 91 / 12%);
   border-bottom-color: rgb(242 84 91 / 30%);
   color: var(--negative);
+}
+
+/* ---------------------------------------------------------------- */
+/* Modern surface treatment                                          */
+/* ---------------------------------------------------------------- */
+
+/* Switching theme animates rather than snapping. Scoped to colour so
+   nothing that affects layout is ever transitioned. */
+body,
+.status-strip,
+.account-bar,
+.analysis-panel,
+.panel-section,
+.panel-section__head,
+.strategy__item,
+.button {
+  transition:
+    background-color var(--slow) var(--ease),
+    border-color var(--slow) var(--ease),
+    color var(--slow) var(--ease);
+}
+
+/* Inter's default figures are proportional, which makes a column of
+   prices jitter as digits change. Every number in the interface is
+   tabular. */
+.indicator__value,
+.strategy__summary,
+.num,
+.sym,
+td,
+th {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'cv05' 1;
+}
+
+/* Inter reads better with slightly tightened headings. */
+h1,
+.panel-title,
+.strategy__title {
+  letter-spacing: -0.01em;
+  font-feature-settings: 'cv05' 1, 'ss03' 1;
+}
+
+.panel-section {
+  box-shadow: var(--shadow-sm);
+}
+
+/* A quiet lift on the section under the pointer, so the panel feels
+   responsive without anything moving. */
+.panel-section:hover {
+  border-color: var(--border-strong);
+}
+
+.status-strip {
+  /* The strip sits above a dense terminal; a hairline of accent along
+     the bottom separates the two without a heavy rule. */
+  box-shadow:
+    var(--shadow-sm),
+    inset 0 -1px 0 0 var(--border);
+}
+
+.brand__mark {
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 0 12px -2px var(--accent);
+}
+
+/* Keyboard focus must be obvious; the app is used at speed. */
+:where(button, input, select, textarea, a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* The live indicator breathes, so "live" is legible at a glance rather
+   than needing the number read. */
+.dot--ready {
+  animation: pulse 2.4s var(--ease) infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(53 201 139 / 45%);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(53 201 139 / 0%);
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Theme picker                                                      */
+/* ---------------------------------------------------------------- */
+
+.theme {
+  position: relative;
+}
+
+.theme__trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.theme__trigger:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.theme__swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex: none;
+  background: linear-gradient(135deg, var(--accent), var(--bg-panel) 65%);
+  border: 1px solid var(--border-strong);
+}
+
+/* Each menu entry previews its own palette rather than the active one. */
+.theme__swatch[data-preview='dark'] {
+  background: linear-gradient(135deg, #4c9aff, #111823 65%);
+}
+
+.theme__swatch[data-preview='fortrade'] {
+  background: linear-gradient(135deg, #2f8fff, #0c1c30 65%);
+}
+
+.theme__swatch[data-preview='midnight'] {
+  background: linear-gradient(135deg, #6aa9ff, #05070a 65%);
+}
+
+.theme__swatch[data-preview='light'] {
+  background: linear-gradient(135deg, #1668d8, #ffffff 65%);
+}
+
+.theme__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: 268px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-md);
+  animation: menu-in var(--fast) var(--ease);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.theme__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme__option:hover {
+  background: var(--bg-raised);
+  color: var(--text);
+}
+
+.theme__option--on {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.theme__option .theme__swatch {
+  margin-top: 2px;
+  width: 13px;
+  height: 13px;
+}
+
+.theme__option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.theme__option-name {
+  font-size: 12px;
+}
+
+.theme__option-hint {
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+/* Anyone who has asked the system for less motion gets none of it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

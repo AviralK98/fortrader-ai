@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fortrader AI</title>
+    <script>
+      // Before first paint: reading this in React would render one frame
+      // in the default palette and then swap, which reads as a flicker.
+      try {
+        var saved = localStorage.getItem('fortrader.theme');
+        document.documentElement.dataset.theme =
+          ['dark', 'light', 'fortrade', 'midnight'].indexOf(saved) >= 0
+            ? saved
+            : 'dark';
+      } catch (e) {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
