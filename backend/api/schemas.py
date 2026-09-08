@@ -19,6 +19,7 @@ from backend.fortrade.models import (
 )
 from backend.fortrade.state import AppState, SystemStatus
 from backend.paper.engine import PaperSummary, PaperTrade
+from backend.strategies.models import StrategyParameters
 
 
 class HealthResponse(BaseModel):
@@ -94,6 +95,20 @@ class ChatRequest(BaseModel):
 
     symbol: str = "GBP/USD"
     timeframe: Timeframe = Timeframe.M5
+
+
+class StrategyWrite(BaseModel):
+    """A strategy as submitted by the user.
+
+    Parameters only. There is deliberately no field here that could carry
+    an expression, a path or anything else that might later be executed.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=60)
+    parameters: StrategyParameters
+    notes: str = Field(default="", max_length=500)
 
 
 class ChatStatusResponse(BaseModel):

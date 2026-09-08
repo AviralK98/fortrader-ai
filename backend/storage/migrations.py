@@ -163,9 +163,36 @@ CREATE INDEX idx_paper_series ON paper_trades (symbol, timeframe, status);
 """
 
 
+_STRATEGIES = """
+-- A strategy is a named set of signal-engine parameters. The built-in
+-- one is deliberately NOT stored here: it is defined in code, always
+-- present, and cannot be edited or deleted, so an empty or damaged table
+-- still leaves the application with a working engine.
+CREATE TABLE strategies (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    -- The SignalConfig as JSON. Parameters only; never code.
+    parameters  TEXT NOT NULL,
+    notes       TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+
+-- Which strategy the engine currently uses. A single row; the value may
+-- name the built-in, or a strategy that has since been deleted, so
+-- resolution always falls back rather than failing.
+CREATE TABLE settings (
+    key         TEXT PRIMARY KEY,
+    value       TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+"""
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="initial_schema", sql=_INITIAL_SCHEMA),
     Migration(version=2, name="paper_trade_timeframe", sql=_PAPER_TIMEFRAME),
+    Migration(version=3, name="strategies", sql=_STRATEGIES),
 )
 
 

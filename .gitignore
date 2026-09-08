@@ -60,3 +60,8 @@ logs/
 Thumbs.db
 .DS_Store
 .idea/
+
+# Local agent/editor configuration. Machine-specific: these hold
+# absolute paths to this machine's interpreter, which are wrong on
+# anyone else's.
+.codex/

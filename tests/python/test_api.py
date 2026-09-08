@@ -242,6 +242,13 @@ class TestNoExecutionSurface:
     #: arrive unnoticed under the same method.
     STATELESS_POST = frozenset({"/api/chat"})
 
+    #: Local configuration the user owns: named parameter sets for the
+    #: signal engine. These legitimately need writes, but they are
+    #: configuration, not execution -- the structural tests below assert
+    #: the stored shape is numbers and that nothing about a strategy is
+    #: ever imported, evaluated or run.
+    CONFIG_PREFIX = "/api/strategies"
+
     def test_no_order_routes_outside_the_paper_namespace(
         self, client: TestClient
     ) -> None:
@@ -269,6 +276,8 @@ class TestNoExecutionSurface:
 
             if path.startswith(self.SIMULATED_PREFIX):
                 assert set(methods) <= {"get", "post"}, path
+            elif path.startswith(self.CONFIG_PREFIX):
+                assert set(methods) <= {"get", "post", "put", "delete"}, path
             elif path in self.STATELESS_POST:
                 assert set(methods) == {"post"}, path
             else:
@@ -323,6 +332,38 @@ class TestNoExecutionSurface:
         for module in imported:
             for forbidden in ("storage", "paper", "fortrade"):
                 assert forbidden not in module, f"{module} imports {forbidden}"
+
+    def test_a_strategy_is_data_and_never_code(self) -> None:
+        """The writable configuration surface must stay inert.
+
+        Strategies are the one thing a user authors and may share with a
+        friend. If any of it were executed, a shared strategy file would
+        be an executable with full access to that friend's machine, their
+        Fortrade session and their credentials. Every stored field is a
+        number, and nothing in the package evaluates or imports anything.
+        """
+        import ast
+
+        from backend.strategies.models import builtin_strategy
+
+        stored = builtin_strategy().parameters.model_dump()
+        stored.pop("timeframe_weights")
+
+        for key, value in stored.items():
+            assert isinstance(value, (int, float)), f"{key} is not a number"
+
+        root = Path(__file__).resolve().parents[2] / "backend" / "strategies"
+
+        for module in root.rglob("*.py"):
+            tree = ast.parse(module.read_text(encoding="utf-8"))
+
+            called = {
+                node.func.id
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            }
+
+            assert not called & {"eval", "exec", "compile", "__import__"}, module.name
 
     def test_paper_module_has_no_execution_helpers(self) -> None:
         import backend.paper.engine as engine

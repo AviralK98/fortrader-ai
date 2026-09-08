@@ -44,6 +44,7 @@ from backend.paper.engine import PaperTrade
 from backend.paper.service import PaperTradingService
 from backend.planning import narrative
 from backend.planning.plan import TradePlan, build_plan
+from backend.signals.config import SignalConfig
 from backend.signals.engine import Signal
 from backend.signals.multi_timeframe import (
     MultiTimeframeResult,
@@ -60,6 +61,14 @@ from backend.storage.repositories import (
     SignalRepository,
     SnapshotRepository,
     SqliteCandleProvider,
+)
+from backend.strategies.models import Strategy
+from backend.strategies.repository import (
+    StrategyExistsError,
+    StrategyNotFoundError,
+    StrategyReadOnlyError,
+    StrategyRepository,
+    TooManyStrategiesError,
 )
 
 #: How often a full market snapshot is written to the database.
@@ -91,6 +100,7 @@ class AppContext:
         self.quotes = QuoteRepository(self.database)
         self.backtests = BacktestRepository(self.database)
         self.paper = PaperTradingService(PaperTradeRepository(self.database))
+        self.strategies = StrategyRepository(self.database)
         self.retention = Retention(self.database)
 
         #: Snapshots are stored on an interval, not on every ingest.
@@ -212,6 +222,16 @@ def require_ingest_token(
 IngestAuth = Annotated[None, Depends(require_ingest_token)]
 
 
+def _active_config(ctx: AppContext) -> SignalConfig:
+    """The engine parameters the user has selected.
+
+    Resolution never fails: a missing, deleted or unreadable selection
+    falls back to the built-in strategy, so a signal is always produced
+    with a valid configuration rather than not at all.
+    """
+    return ctx.strategies.active().parameters.to_config()
+
+
 def _safe_quotes(ctx: AppContext) -> list[Quote]:
     """Current quotes, or an empty list before any have been observed."""
     try:
@@ -319,7 +339,11 @@ def _register_routes(app: FastAPI) -> None:
         The score is a conviction summary, not a probability.
         """
         signal, _ = signal_with_timeframes(
-            symbol.upper(), timeframe, ctx.candles, limit=limit
+            symbol.upper(),
+            timeframe,
+            ctx.candles,
+            config=_active_config(ctx),
+            limit=limit,
         )
 
         # Recorded only when the bias or score moves, so the history is a
@@ -363,7 +387,7 @@ def _register_routes(app: FastAPI) -> None:
         manufacturing one, and never recommends taking it.
         """
         signal, _ = signal_with_timeframes(
-            symbol.upper(), timeframe, ctx.candles
+            symbol.upper(), timeframe, ctx.candles, config=_active_config(ctx)
         )
 
         quote = next(
@@ -386,6 +410,66 @@ def _register_routes(app: FastAPI) -> None:
             paper_trades_closed=metrics.trades,
             paper_trades_required=metrics.minimum_trades,
         )
+
+    @app.get("/api/strategies", response_model=list[Strategy])
+    def list_strategies(ctx: Ctx) -> list[Strategy]:
+        """Every strategy, built-in first."""
+        return ctx.strategies.list()
+
+    @app.get("/api/strategies/active", response_model=Strategy)
+    def get_active_strategy(ctx: Ctx) -> Strategy:
+        return ctx.strategies.active()
+
+    @app.post("/api/strategies", response_model=Strategy, status_code=201)
+    def create_strategy(payload: schemas.StrategyWrite, ctx: Ctx) -> Strategy:
+        """Store a new parameter set.
+
+        Parameters are range-checked and proven to build a usable engine
+        config before they are written, so a strategy that could never
+        produce a signal cannot be saved.
+        """
+        try:
+            return ctx.strategies.create(
+                payload.name, payload.parameters, payload.notes
+            )
+        except (StrategyExistsError, TooManyStrategiesError) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.put("/api/strategies/{strategy_id}", response_model=Strategy)
+    def update_strategy(
+        strategy_id: str, payload: schemas.StrategyWrite, ctx: Ctx
+    ) -> Strategy:
+        try:
+            return ctx.strategies.update(
+                strategy_id, payload.name, payload.parameters, payload.notes
+            )
+        except StrategyReadOnlyError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        except StrategyNotFoundError as error:
+            raise HTTPException(status_code=404, detail="No such strategy") from error
+        except StrategyExistsError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.delete("/api/strategies/{strategy_id}", status_code=204)
+    def delete_strategy(strategy_id: str, ctx: Ctx) -> None:
+        try:
+            ctx.strategies.delete(strategy_id)
+        except StrategyReadOnlyError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+        except StrategyNotFoundError as error:
+            raise HTTPException(status_code=404, detail="No such strategy") from error
+
+    @app.post("/api/strategies/{strategy_id}/activate", response_model=Strategy)
+    def activate_strategy(strategy_id: str, ctx: Ctx) -> Strategy:
+        """Choose which strategy the engine uses from now on."""
+        try:
+            return ctx.strategies.activate(strategy_id)
+        except StrategyNotFoundError as error:
+            raise HTTPException(status_code=404, detail="No such strategy") from error
 
     @app.post("/api/chat", response_model=chat_service.ChatReply)
     def chat(
@@ -495,7 +579,7 @@ def _register_routes(app: FastAPI) -> None:
         backend has no channel to the trading interface at all.
         """
         signal, _ = signal_with_timeframes(
-            symbol.upper(), timeframe, ctx.candles
+            symbol.upper(), timeframe, ctx.candles, config=_active_config(ctx)
         )
 
         quotes = _safe_quotes(ctx)
@@ -615,7 +699,9 @@ def _register_routes(app: FastAPI) -> None:
         limit: Annotated[int, Query(ge=MINIMUM_BARS, le=5000)] = 500,
     ) -> MultiTimeframeResult:
         """Weighted M1/M5/M15/H1 view. Timeframes lacking history are excluded."""
-        return analyse_timeframes(symbol.upper(), ctx.candles, limit=limit)
+        return analyse_timeframes(
+            symbol.upper(), ctx.candles, _active_config(ctx), limit
+        )
 
     @app.get("/api/candles/coverage", response_model=schemas.CoverageResponse)
     def get_coverage(ctx: Ctx) -> schemas.CoverageResponse:
