@@ -60,6 +60,25 @@ export function UpdateBanner(): JSX.Element | null {
     );
   }
 
+  if (state.status === 'error') {
+    // Previously this fell through to `null`, so a failed update looked
+    // exactly like being up to date. Whatever went wrong, saying so is
+    // better than a silence the user has to interpret.
+    return (
+      <div className="update-banner update-banner--error">
+        <span>Update check failed.</span>
+        <span className="update-banner__note">{state.detail}</span>
+        <button
+          type="button"
+          className="button button--small"
+          onClick={() => window.desktop.checkForUpdates()}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   if (state.status === 'downloading') {
     return (
       <div className="update-banner">

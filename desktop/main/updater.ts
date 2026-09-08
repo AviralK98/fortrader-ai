@@ -117,7 +117,18 @@ export class Updater {
     autoUpdater.autoDownload = true;
     // The user chooses the moment; see the restraint above.
     autoUpdater.autoInstallOnAppQuit = true;
-    autoUpdater.logger = null;
+
+    // Previously `null`, which discarded every diagnostic the updater
+    // produced. When an update then failed to arrive there was nothing
+    // to look at -- not a message, not a status, nothing -- and the only
+    // way to learn anything was to inspect the cache directory by hand.
+    // Routed into our own logger, which redacts before writing.
+    autoUpdater.logger = {
+      info: (m: unknown) => log.info('updater', { detail: String(m) }),
+      warn: (m: unknown) => log.warn('updater', { detail: String(m) }),
+      error: (m: unknown) => log.error('updater', { detail: String(m) }),
+      debug: () => undefined,
+    };
 
     autoUpdater.on('checking-for-update', () => {
       this.set({ status: 'checking' });

@@ -5,6 +5,17 @@
  * about it passes through here first.
  */
 
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
+
+import { app } from 'electron';
+
 const REDACTED = '[REDACTED]';
 
 const JWT = /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}/g;
@@ -41,6 +52,36 @@ export function redact(value: unknown): unknown {
 
 type Level = 'debug' | 'info' | 'warn' | 'error';
 
+/** Beyond this the log is truncated; it is a diagnostic, not an archive. */
+const MAX_LOG_BYTES = 2_000_000;
+
+let logFile: string | null | undefined;
+
+/**
+ * Where main-process logs are written, beside the backend's own.
+ *
+ * Resolved lazily and cached, including the failure: `app` is only
+ * available inside Electron, and this module is also loaded by tests.
+ */
+function resolveLogFile(): string | null {
+  if (logFile !== undefined) return logFile;
+
+  try {
+    // Importing electron outside Electron is harmless; only calling
+    // getPath is not, and that is what the catch is for. The tests load
+    // this module in plain Node.
+    const dir = join(app.getPath('userData'), 'data', 'logs');
+
+    mkdirSync(dir, { recursive: true });
+
+    logFile = join(dir, 'desktop.log');
+  } catch {
+    logFile = null;
+  }
+
+  return logFile;
+}
+
 function emit(level: Level, scope: string, message: string, context?: unknown): void {
   const payload = {
     ts: new Date().toISOString(),
@@ -50,8 +91,28 @@ function emit(level: Level, scope: string, message: string, context?: unknown): 
     ...(context === undefined ? {} : { context: redact(context) }),
   };
 
+  const line = `${JSON.stringify(payload)}\n`;
+
   // stderr keeps stdout free for structured child-process protocols.
-  process.stderr.write(`${JSON.stringify(payload)}\n`);
+  process.stderr.write(line);
+
+  // A packaged Windows application has no console attached, so stderr
+  // alone means every main-process diagnostic is discarded -- which is
+  // exactly what made a failing update impossible to investigate. The
+  // backend has kept a log file all along; this gives the shell one too.
+  const target = resolveLogFile();
+
+  if (target === null) return;
+
+  try {
+    if (existsSync(target) && statSync(target).size > MAX_LOG_BYTES) {
+      writeFileSync(target, '');
+    }
+
+    appendFileSync(target, line);
+  } catch {
+    // Logging must never be the thing that breaks the application.
+  }
 }
 
 export function createLogger(scope: string) {
