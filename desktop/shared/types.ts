@@ -246,6 +246,33 @@ export interface PaperState {
   metrics: BacktestMetrics;
 }
 
+/** Engine parameters. Numbers only — a strategy is never code. */
+export interface StrategyParameters {
+  direction_threshold: number;
+  minimum_bars_for_timeframe: number;
+  stretched_rsi_penalty: number;
+  level_proximity_atr: number;
+  level_proximity_effect: number;
+  timeframe_weights: Record<string, number>;
+}
+
+export interface Strategy {
+  id: string;
+  name: string;
+  parameters: StrategyParameters;
+  notes: string;
+  /** Shipped with the app: cannot be edited or deleted. */
+  builtin: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StrategyWrite {
+  name: string;
+  parameters: StrategyParameters;
+  notes: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;

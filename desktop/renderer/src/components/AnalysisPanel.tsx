@@ -14,6 +14,7 @@ import type {
 } from '../../../shared/types';
 import { BacktestPanel } from './BacktestPanel';
 import { ChatPanel } from './ChatPanel';
+import { StrategyPanel } from './StrategyPanel';
 import { CoveragePanel } from './CoveragePanel';
 import { IndicatorsPanel } from './IndicatorsPanel';
 import { NextSteps } from './NextSteps';
@@ -177,6 +178,10 @@ export function AnalysisPanel({
         refreshKeys={['chart', 'analysis']}
       >
         <IndicatorsPanel analysis={analysis} pending={pending} />
+      </Section>
+
+      <Section title="Strategy" meta="engine">
+        <StrategyPanel />
       </Section>
 
       <Section title="Ask About This" meta="scoped">

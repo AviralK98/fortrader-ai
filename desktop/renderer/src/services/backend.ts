@@ -13,6 +13,8 @@ import type {
   ChatMessage,
   ChatSend,
   ChatStatus,
+  Strategy,
+  StrategyWrite,
   Coverage,
   MultiTimeframe,
   PaperState,
@@ -71,6 +73,55 @@ export const backend = {
     ),
   paper: () => get<PaperState>('/api/paper/positions'),
   chatStatus: () => get<ChatStatus>('/api/chat/status'),
+  strategies: () => get<Strategy[]>('/api/strategies'),
+  activeStrategy: () => get<Strategy>('/api/strategies/active'),
+  saveStrategy: async (
+    body: StrategyWrite,
+    id?: string,
+  ): Promise<Strategy> => {
+    const response = await fetch(
+      id ? `${BASE_URL}/api/strategies/${id}` : `${BASE_URL}/api/strategies`,
+      {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+
+    if (!response.ok) {
+      // The backend explains a refusal (out of range, duplicate name);
+      // showing its wording beats a status code the user cannot act on.
+      const detail = await response
+        .json()
+        .then((body: { detail?: unknown }) => body.detail)
+        .catch(() => null);
+
+      throw new Error(
+        typeof detail === 'string' ? detail : `Save failed: ${response.status}`,
+      );
+    }
+
+    return (await response.json()) as Strategy;
+  },
+  deleteStrategy: async (id: string): Promise<void> => {
+    const response = await fetch(`${BASE_URL}/api/strategies/${id}`, {
+      method: 'DELETE',
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!response.ok) throw new Error(`Delete failed: ${response.status}`);
+  },
+  activateStrategy: async (id: string): Promise<Strategy> => {
+    const response = await fetch(
+      `${BASE_URL}/api/strategies/${id}/activate`,
+      { method: 'POST', signal: AbortSignal.timeout(10_000) },
+    );
+
+    if (!response.ok) throw new Error(`Activate failed: ${response.status}`);
+
+    return (await response.json()) as Strategy;
+  },
   chat: async (body: {
     message: string;
     history: ChatMessage[];
