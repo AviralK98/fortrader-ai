@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
+import { createPortal } from 'react-dom';
 
 import {
   ACCENTS,
@@ -37,7 +38,16 @@ export function AppearancePanel(): JSX.Element {
     document.addEventListener('keydown', escape);
     closeRef.current?.focus();
 
-    return () => document.removeEventListener('keydown', escape);
+    // Fortrade's chart is a native view composited above this page, so
+    // no z-index can put the sheet in front of it. Hiding it while the
+    // sheet is open is the only way the panel is fully visible -- and it
+    // lets the scrim actually dim the whole window.
+    window.desktop.setFortradeVisible(false);
+
+    return () => {
+      document.removeEventListener('keydown', escape);
+      window.desktop.setFortradeVisible(true);
+    };
   }, [open]);
 
   const set = <K extends keyof Appearance>(
@@ -65,8 +75,9 @@ export function AppearancePanel(): JSX.Element {
         />
       </button>
 
-      {open && (
-        <>
+      {open &&
+        createPortal(
+          <>
           <div
             className="sheet__scrim"
             onClick={() => setOpen(false)}
@@ -212,8 +223,9 @@ export function AppearancePanel(): JSX.Element {
               </section>
             </div>
           </aside>
-        </>
-      )}
+          </>,
+          document.body,
+        )}
     </>
   );
 }
