@@ -66,13 +66,20 @@ export function AppearancePanel(): JSX.Element {
         title="Appearance"
         aria-label="Appearance settings"
       >
-        <span
-          className="swatch"
-          style={{
-            background: `linear-gradient(135deg, ${preset.swatch[0]}, ${preset.swatch[1]})`,
-          }}
-          aria-hidden="true"
-        />
+        {/* Three lines: a menu reads as "there is more in here" where a
+            colour swatch read as a decoration. The active preset tints
+            them so the button still says which one is on. */}
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <g
+            stroke={preset.swatch[0]}
+            strokeWidth="1.7"
+            strokeLinecap="round"
+          >
+            <line x1="2.5" y1="4.5" x2="13.5" y2="4.5" />
+            <line x1="2.5" y1="8" x2="13.5" y2="8" />
+            <line x1="2.5" y1="11.5" x2="13.5" y2="11.5" />
+          </g>
+        </svg>
       </button>
 
       {open &&

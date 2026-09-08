@@ -1761,16 +1761,35 @@ body::before {
   pointer-events: none;
   background:
     radial-gradient(
-      42% 38% at 18% 12%,
-      color-mix(in srgb, var(--ambient-a) 26%, transparent),
+      34% 30% at 14% 10%,
+      color-mix(in srgb, var(--ambient-a) 62%, transparent),
+      transparent 68%
+    ),
+    radial-gradient(
+      38% 34% at 88% 84%,
+      color-mix(in srgb, var(--ambient-b) 58%, transparent),
       transparent 70%
     ),
     radial-gradient(
-      46% 42% at 86% 88%,
-      color-mix(in srgb, var(--ambient-b) 24%, transparent),
-      transparent 72%
+      30% 26% at 62% 30%,
+      color-mix(in srgb, var(--ambient-a) 34%, transparent),
+      transparent 66%
     ),
     var(--bg-deep);
+}
+
+/* Fine grain over the washes. Blur has nothing to act on against a
+   smooth gradient -- grain is what makes the frosting legible, and it
+   also hides the banding large soft gradients produce on 8-bit
+   displays. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
 }
 
 [data-motion='subtle'] body::before {
@@ -1895,13 +1914,22 @@ body {
 .appearance__trigger {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--bg-raised);
   cursor: pointer;
+  transition:
+    border-color var(--fast) var(--ease),
+    background-color var(--fast) var(--ease);
+}
+
+.appearance__trigger svg {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .appearance__trigger:hover {

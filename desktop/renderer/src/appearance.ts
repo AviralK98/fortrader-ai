@@ -205,9 +205,12 @@ export function applyAppearance(appearance: Appearance): void {
   // glass" rather than simply "blurrier".
   const g = appearance.glass / 100;
 
-  root.style.setProperty('--glass-blur', `${(g * 22).toFixed(1)}px`);
-  root.style.setProperty('--glass-alpha', (0.92 - g * 0.35).toFixed(3));
-  root.style.setProperty('--glass-edge', (0.06 + g * 0.10).toFixed(3));
+  // The range has to be wide to be visible at all: at the previous
+  // 0.92-0.57 the panel colour and the backdrop were close enough
+  // that the whole slider moved the result by 13/765 of a channel.
+  root.style.setProperty('--glass-blur', `${(g * 26).toFixed(1)}px`);
+  root.style.setProperty('--glass-alpha', (0.98 - g * 0.62).toFixed(3));
+  root.style.setProperty('--glass-edge', (0.05 + g * 0.16).toFixed(3));
 
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(appearance));

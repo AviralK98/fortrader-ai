@@ -41,9 +41,9 @@
         root.style.setProperty('--radius', radii[a.radius] || radii.soft);
 
         var g = (typeof a.glass === 'number' ? a.glass : 55) / 100;
-        root.style.setProperty('--glass-blur', (g * 22).toFixed(1) + 'px');
-        root.style.setProperty('--glass-alpha', (0.92 - g * 0.35).toFixed(3));
-        root.style.setProperty('--glass-edge', (0.06 + g * 0.1).toFixed(3));
+        root.style.setProperty('--glass-blur', (g * 26).toFixed(1) + 'px');
+        root.style.setProperty('--glass-alpha', (0.98 - g * 0.62).toFixed(3));
+        root.style.setProperty('--glass-edge', (0.05 + g * 0.16).toFixed(3));
       })();
     </script>
   </head>
