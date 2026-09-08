@@ -45,7 +45,7 @@ from backend.paper.service import PaperTradingService
 from backend.planning import narrative
 from backend.planning.plan import TradePlan, build_plan
 from backend.signals.config import SignalConfig
-from backend.signals.engine import Signal
+from backend.signals.engine import Bias, Signal
 from backend.signals.multi_timeframe import (
     MultiTimeframeResult,
     analyse_timeframes,
@@ -70,11 +70,11 @@ from backend.strategies.repository import (
     StrategyRepository,
     TooManyStrategiesError,
 )
+from backend.version import VERSION
 
 #: How often a full market snapshot is written to the database.
 SNAPSHOT_INTERVAL_SECONDS = 300
 
-VERSION = "0.3.0"
 
 # Bars needed before analysis over a series is considered reliable. EMA 200
 # alone consumes 200 closes before producing its first meaningful value.
@@ -100,7 +100,7 @@ class AppContext:
         self.quotes = QuoteRepository(self.database)
         self.backtests = BacktestRepository(self.database)
         self.paper = PaperTradingService(PaperTradeRepository(self.database))
-        self.strategies = StrategyRepository(self.database)
+        self.strategies = StrategyRepository(self.database, settings.data_dir)
         self.retention = Retention(self.database)
 
         #: Snapshots are stored on an interval, not on every ingest.
@@ -232,6 +232,76 @@ def _active_config(ctx: AppContext) -> SignalConfig:
     return ctx.strategies.active().parameters.to_config()
 
 
+def _signal_for(
+    ctx: AppContext, symbol: str, timeframe: Timeframe, limit: int = 500
+) -> Signal:
+    """Produce a signal using whichever strategy is selected.
+
+    Indicators are always measured by this application; a script decides
+    what to conclude from them and cannot change what they say. So a
+    user's strategy is a decision layer over deterministic readings, not
+    a replacement for the measurement.
+
+    A script that fails leaves the deterministic reading in place with
+    the error attached as a warning, rather than replacing a usable
+    signal with nothing.
+    """
+    strategy = ctx.strategies.active()
+
+    signal, _ = signal_with_timeframes(
+        symbol,
+        timeframe,
+        ctx.candles,
+        config=strategy.parameters.to_config(),
+        limit=limit,
+    )
+
+    if strategy.kind != "script" or not strategy.script:
+        return signal
+
+    from backend.strategies import scripts
+
+    path = scripts.scripts_dir(ctx.settings.data_dir) / strategy.script
+
+    if not path.is_file():
+        return signal.model_copy(
+            update={
+                "warnings": (
+                    *signal.warnings,
+                    f"Strategy script {strategy.script} is missing; "
+                    "showing the built-in reading.",
+                )
+            }
+        )
+
+    candles = [
+        c.model_dump(mode="json")
+        for c in ctx.candles.get_candles(symbol, timeframe, limit)
+    ]
+
+    result = scripts.run(
+        path, candles, signal.indicators.model_dump(mode="json")
+    )
+
+    if result.error:
+        return signal.model_copy(
+            update={"warnings": (*signal.warnings, result.error)}
+        )
+
+    return signal.model_copy(
+        update={
+            "bias": Bias(result.bias),
+            "score": result.score,
+            "reasons": result.reasons,
+            "warnings": (
+                *signal.warnings,
+                f"Decided by your script {strategy.script}, not the "
+                "built-in engine.",
+            ),
+        }
+    )
+
+
 def _safe_quotes(ctx: AppContext) -> list[Quote]:
     """Current quotes, or an empty list before any have been observed."""
     try:
@@ -338,13 +408,7 @@ def _register_routes(app: FastAPI) -> None:
 
         The score is a conviction summary, not a probability.
         """
-        signal, _ = signal_with_timeframes(
-            symbol.upper(),
-            timeframe,
-            ctx.candles,
-            config=_active_config(ctx),
-            limit=limit,
-        )
+        signal = _signal_for(ctx, symbol.upper(), timeframe, limit)
 
         # Recorded only when the bias or score moves, so the history is a
         # log of decisions rather than of polling.
@@ -386,9 +450,7 @@ def _register_routes(app: FastAPI) -> None:
         Deterministic. Reports why a setup is not tradeable rather than
         manufacturing one, and never recommends taking it.
         """
-        signal, _ = signal_with_timeframes(
-            symbol.upper(), timeframe, ctx.candles, config=_active_config(ctx)
-        )
+        signal = _signal_for(ctx, symbol.upper(), timeframe)
 
         quote = next(
             (q for q in _safe_quotes(ctx) if q.symbol.upper() == symbol.upper()),
@@ -578,9 +640,7 @@ def _register_routes(app: FastAPI) -> None:
         Simulated only. This never reaches Fortrade's order entry — the
         backend has no channel to the trading interface at all.
         """
-        signal, _ = signal_with_timeframes(
-            symbol.upper(), timeframe, ctx.candles, config=_active_config(ctx)
-        )
+        signal = _signal_for(ctx, symbol.upper(), timeframe)
 
         quotes = _safe_quotes(ctx)
 

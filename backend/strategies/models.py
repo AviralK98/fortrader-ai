@@ -125,8 +125,16 @@ class StrategyParameters(BaseModel):
         return self
 
 
+#: Prefix marking a strategy that is a file on disk rather than a row.
+SCRIPT_PREFIX = "script:"
+
+
+def script_id(filename: str) -> str:
+    return f"{SCRIPT_PREFIX}{filename}"
+
+
 class Strategy(BaseModel):
-    """A named parameter set. `builtin` ones are read-only."""
+    """A named strategy: either a parameter set or a user script."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -137,6 +145,15 @@ class Strategy(BaseModel):
 
     #: Shipped with the application: cannot be edited or deleted.
     builtin: bool = False
+
+    #: "parameters" tunes the built-in engine; "script" replaces the
+    #: decision with a Python file the user wrote. Scripts are discovered
+    #: from a folder rather than stored, so editing one means editing the
+    #: file -- the application never rewrites a user's code.
+    kind: str = Field(default="parameters", pattern="^(parameters|script)$")
+
+    #: Filename within the scripts folder. Set only when kind is "script".
+    script: str | None = None
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

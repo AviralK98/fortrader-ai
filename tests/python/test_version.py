@@ -40,8 +40,8 @@ def test_every_version_string_agrees() -> None:
         "pyproject.toml": _regex_version(
             "pyproject.toml", r'^version\s*=\s*"([^"]+)"'
         ),
-        "backend/api/server.py": _regex_version(
-            "backend/api/server.py", r'^VERSION\s*=\s*"([^"]+)"'
+        "backend/version.py": _regex_version(
+            "backend/version.py", r'^VERSION\s*=\s*"([^"]+)"'
         ),
     }
 

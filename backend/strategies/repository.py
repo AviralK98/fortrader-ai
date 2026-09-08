@@ -12,15 +12,19 @@ import json
 import sqlite3
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 from backend.logging_setup import get_logger
 from backend.storage.database import Database
 from backend.strategies.models import (
     BUILTIN_ID,
+    SCRIPT_PREFIX,
     Strategy,
     StrategyParameters,
     builtin_strategy,
+    script_id,
 )
+from backend.strategies.scripts import discover
 
 logger = get_logger(__name__)
 
@@ -48,8 +52,39 @@ class TooManyStrategiesError(Exception):
 
 
 class StrategyRepository:
-    def __init__(self, database: Database) -> None:
+    def __init__(self, database: Database, data_dir: Path | None = None) -> None:
         self._db = database
+        #: Where user scripts live. Absent in tests that only exercise
+        #: stored parameters, in which case no script is discovered.
+        self._data_dir = data_dir
+
+    def scripts(self) -> list[Strategy]:
+        """Strategies that are files the user wrote.
+
+        Discovered rather than stored: the file on disk is the strategy,
+        so adding one is dropping it in the folder and removing one is
+        deleting it. The application never edits a user's code.
+        """
+        if self._data_dir is None:
+            return []
+
+        try:
+            found = discover(self._data_dir)
+        except OSError:
+            logger.exception("Strategy scripts folder could not be read")
+            return []
+
+        return [
+            Strategy(
+                id=script_id(path.name),
+                name=path.stem.replace("_", " "),
+                parameters=StrategyParameters(),
+                notes=f"Python script: {path.name}",
+                kind="script",
+                script=path.name,
+            )
+            for path in found
+        ]
 
     # -- reads ------------------------------------------------------
 
@@ -71,11 +106,18 @@ class StrategyRepository:
             if parsed is not None:
                 stored.append(parsed)
 
-        return [builtin_strategy(), *stored]
+        return [builtin_strategy(), *stored, *self.scripts()]
 
     def get(self, strategy_id: str) -> Strategy | None:
         if strategy_id == BUILTIN_ID:
             return builtin_strategy()
+
+        if strategy_id.startswith(SCRIPT_PREFIX):
+            # Resolved against the folder each time: a script deleted
+            # outside the application must stop being selectable.
+            return next(
+                (s for s in self.scripts() if s.id == strategy_id), None
+            )
 
         with self._db.transaction() as conn:
             row = conn.execute(
@@ -166,7 +208,14 @@ class StrategyRepository:
         notes: str = "",
     ) -> Strategy:
         if strategy_id == BUILTIN_ID:
-            raise StrategyReadOnlyError("The built-in strategy cannot be edited.")
+            raise StrategyReadOnlyError(
+                "The built-in strategy cannot be edited."
+            )
+
+        if strategy_id.startswith(SCRIPT_PREFIX):
+            raise StrategyReadOnlyError(
+                "A strategy script is edited by editing its file."
+            )
 
         parameters.checked()
 
@@ -202,7 +251,14 @@ class StrategyRepository:
 
     def delete(self, strategy_id: str) -> None:
         if strategy_id == BUILTIN_ID:
-            raise StrategyReadOnlyError("The built-in strategy cannot be deleted.")
+            raise StrategyReadOnlyError(
+                "The built-in strategy cannot be deleted."
+            )
+
+        if strategy_id.startswith(SCRIPT_PREFIX):
+            raise StrategyReadOnlyError(
+                "A strategy script is removed by deleting its file."
+            )
 
         with self._db.transaction() as conn:
             cursor = conn.execute(

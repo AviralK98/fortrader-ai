@@ -286,12 +286,23 @@ class TestNoCodeExecution:
 
             assert not forbidden & called, f"{path.name} evaluates input"
 
-    def test_the_strategy_modules_import_nothing_dynamic(self) -> None:
+    def test_the_parameter_path_imports_nothing_dynamic(self) -> None:
+        """Parameters stay inert even though scripts exist.
+
+        `scripts` deliberately runs user code -- that is the feature, and
+        it is the only module allowed to. The parameter path is what a
+        user shares when they share a strategy they did not write a
+        script for, so it must not gain a way to execute anything.
+        """
         import ast
 
         root = Path(__file__).resolve().parents[2] / "backend" / "strategies"
 
-        for path in root.rglob("*.py"):
+        inert = [p for p in root.rglob("*.py") if p.name != "scripts.py"]
+
+        assert inert, "no parameter modules found to check"
+
+        for path in inert:
             tree = ast.parse(path.read_text(encoding="utf-8"))
 
             imported = {
@@ -312,3 +323,48 @@ class TestNoCodeExecution:
                     "subprocess",
                     "pickle",
                 }, f"{path.name} imports {module}"
+
+    def test_a_script_never_executes_inside_the_backend(self) -> None:
+        """The one module that runs user code runs it elsewhere.
+
+        A script is executed in a child process so a hang or a crash
+        costs one signal. If the backend ever imported or exec'd a
+        strategy in-process, that property would be gone and a bad script
+        would take the application with it.
+        """
+        import ast
+
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "backend"
+            / "strategies"
+            / "scripts.py"
+        ).read_text(encoding="utf-8")
+
+        tree = ast.parse(source)
+
+        # run_child is the child process; everything else is the parent.
+        parent = [
+            node
+            for node in tree.body
+            if not (
+                isinstance(node, ast.FunctionDef) and node.name == "run_child"
+            )
+        ]
+
+        for node in parent:
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Call) and isinstance(
+                    inner.func, ast.Name
+                ):
+                    assert inner.func.id not in {
+                        "eval",
+                        "exec",
+                        "compile",
+                        "__import__",
+                    }, "the parent process evaluates a script"
+
+                if isinstance(inner, ast.Attribute):
+                    assert inner.attr != "exec_module", (
+                        "the parent process imports a script"
+                    )

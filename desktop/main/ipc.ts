@@ -6,8 +6,12 @@
  * Fortrade content, but not blindly.
  */
 
-import { clipboard, ipcMain, type WebContents } from 'electron';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 
+import { clipboard, ipcMain, shell, type WebContents } from 'electron';
+
+import { backendDataDir } from './backend-process';
 import {
   IPC,
   type ShellInfo,
@@ -82,6 +86,15 @@ export function registerIpc(deps: IpcDependencies): void {
   // trigger it on load, and the write merges rather than replaces.
   ipcMain.handle(IPC.writeMcpConfig, () => writeMcpConfig());
 
+  // Opens the folder itself, never a file inside it. The renderer
+  // supplies no path, so this cannot be steered anywhere else.
+  ipcMain.handle(IPC.openScriptsFolder, async () => {
+    const folder = join(backendDataDir(), 'strategies');
+
+    await mkdir(folder, { recursive: true });
+    await shell.openPath(folder);
+  });
+
   ipcMain.on(IPC.copyToClipboard, (_event, text: unknown) => {
     if (typeof text !== 'string' || text.length > 20_000) {
       log.warn('Rejected malformed clipboard payload');
@@ -109,6 +122,7 @@ export function unregisterIpc(): void {
     IPC.getMcpSetup,
     IPC.writeMcpConfig,
     IPC.copyToClipboard,
+    IPC.openScriptsFolder,
     IPC.getUpdateState,
     IPC.checkForUpdates,
     IPC.installUpdate,

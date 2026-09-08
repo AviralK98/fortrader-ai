@@ -17,11 +17,7 @@ import argparse
 import json
 import sys
 
-import uvicorn
-
-from backend.api.server import VERSION, create_app
-from backend.config import load_settings
-from backend.logging_setup import configure_logging, get_logger
+from backend.version import VERSION
 
 
 def run_mcp_bridge() -> int:
@@ -48,6 +44,11 @@ def main() -> int:
         help="Run the read-only MCP stdio bridge instead of the HTTP server.",
     )
     parser.add_argument(
+        "--run-strategy",
+        metavar="PATH",
+        help="Run one strategy script against JSON on stdin. Internal.",
+    )
+    parser.add_argument(
         "--version", action="version", version=f"fortrader-backend {VERSION}"
     )
 
@@ -57,6 +58,22 @@ def main() -> int:
         # stdout belongs to the MCP protocol in this mode, so nothing else
         # may be printed to it.
         return run_mcp_bridge()
+
+    if args.run_strategy:
+        # Deliberately before logging is configured: this process exists
+        # to run one user script and print one line of JSON, and a log
+        # file opened here would be opened once per signal.
+        from backend.strategies.scripts import run_child
+
+        return run_child(args.run_strategy)
+
+    # Imported here rather than at module scope: --run-strategy above
+    # returns before this, and the runner is spawned once per signal.
+    import uvicorn
+
+    from backend.api.server import create_app
+    from backend.config import load_settings
+    from backend.logging_setup import configure_logging, get_logger
 
     settings = load_settings()
 

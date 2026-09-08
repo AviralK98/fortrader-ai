@@ -1351,3 +1351,24 @@ body {
 .strategy__editor .strategy__actions {
   margin-top: 12px;
 }
+
+.strategy__tag--script {
+  background: rgb(232 163 61 / 16%);
+  color: var(--warning);
+}
+
+.strategy__scripts {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.strategy__scripts code {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-dim);
+}

@@ -78,6 +78,9 @@ const api: DesktopApi = {
     ipcRenderer.send(IPC.copyToClipboard, text);
   },
 
+  openScriptsFolder: (): Promise<void> =>
+    ipcRenderer.invoke(IPC.openScriptsFolder),
+
   getUpdateState: (): Promise<UpdateState> =>
     ipcRenderer.invoke(IPC.getUpdateState),
 

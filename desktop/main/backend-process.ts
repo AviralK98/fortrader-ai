@@ -37,6 +37,17 @@ export interface BackendHandle {
   token: string;
 }
 
+/**
+ * Where the backend keeps its database, logs and strategy scripts.
+ *
+ * Exported because the IPC layer opens the scripts folder for the user,
+ * and two places computing this independently is how they end up
+ * pointing somewhere different.
+ */
+export function backendDataDir(): string {
+  return join(app.getPath('userData'), 'data');
+}
+
 export class BackendProcess {
   private child: ChildProcess | null = null;
   private restarts = 0;
@@ -48,7 +59,7 @@ export class BackendProcess {
   /** Shared secret authenticating ingest calls from this process only. */
   readonly token = randomBytes(32).toString('base64url');
 
-  private readonly dataDir = join(app.getPath('userData'), 'data');
+  private readonly dataDir = backendDataDir();
 
   constructor(private readonly onLog: (line: string) => void) {}
 

@@ -275,6 +275,11 @@ export function StrategyPanel(): JSX.Element {
                     {strategy.builtin && (
                       <span className="strategy__tag">read-only</span>
                     )}
+                    {strategy.kind === 'script' && (
+                      <span className="strategy__tag strategy__tag--script">
+                        script
+                      </span>
+                    )}
                     {strategy.id === activeId && (
                       <span className="strategy__tag strategy__tag--on">
                         in use
@@ -284,9 +289,9 @@ export function StrategyPanel(): JSX.Element {
                 </div>
 
                 <p className="strategy__summary">
-                  Conviction {strategy.parameters.direction_threshold} · RSI
-                  penalty {strategy.parameters.stretched_rsi_penalty} · levels{' '}
-                  {strategy.parameters.level_proximity_atr} ATR
+                  {strategy.kind === 'script'
+                    ? strategy.script
+                    : `Conviction ${strategy.parameters.direction_threshold} · RSI penalty ${strategy.parameters.stretched_rsi_penalty} · levels ${strategy.parameters.level_proximity_atr} ATR`}
                 </p>
 
                 <div className="strategy__actions">
@@ -300,14 +305,16 @@ export function StrategyPanel(): JSX.Element {
                       Use this
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="button button--small"
-                    onClick={() => startEdit(strategy, true)}
-                  >
-                    Duplicate
-                  </button>
-                  {!strategy.builtin && (
+                  {strategy.kind !== 'script' && (
+                    <button
+                      type="button"
+                      className="button button--small"
+                      onClick={() => startEdit(strategy, true)}
+                    >
+                      Duplicate
+                    </button>
+                  )}
+                  {!strategy.builtin && strategy.kind !== 'script' && (
                     <>
                       <button
                         type="button"
@@ -337,11 +344,27 @@ export function StrategyPanel(): JSX.Element {
             ))}
           </ul>
 
-          <p className="strategy__caveat">
-            The built-in strategy is the engine as shipped and cannot be
-            changed. Duplicate it to make your own. Strategies are numbers,
-            not code — nothing here runs a script.
-          </p>
+          <div className="strategy__scripts">
+            <p className="strategy__caveat">
+              Drop a Python file in the scripts folder and it appears here.
+              Copy <code>example_strategy.py</code> to start — it documents
+              what your <code>analyse</code> function receives and returns.
+            </p>
+            <button
+              type="button"
+              className="button button--small"
+              onClick={() => void window.desktop.openScriptsFolder()}
+            >
+              Open scripts folder
+            </button>
+            <p className="strategy__caveat">
+              A script is a program that runs on your machine with your
+              permissions. Write your own; treat one from someone else the
+              way you would treat any program they sent you. Indicators are
+              still measured by the app — a script only decides what to
+              conclude from them.
+            </p>
+          </div>
         </>
       )}
     </div>

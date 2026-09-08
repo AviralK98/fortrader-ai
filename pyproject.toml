@@ -1,6 +1,6 @@
 [project]
 name = "fortrader-ai-backend"
-version = "0.3.0"
+version = "0.4.0"
 description = "Deterministic market analysis backend for Fortrader AI"
 requires-python = ">=3.10"
 license = { text = "MIT" }

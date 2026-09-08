@@ -263,6 +263,10 @@ export interface Strategy {
   notes: string;
   /** Shipped with the app: cannot be edited or deleted. */
   builtin: boolean;
+  /** "parameters" tunes the engine; "script" replaces the decision. */
+  kind: 'parameters' | 'script';
+  /** Filename in the scripts folder, when kind is "script". */
+  script: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -379,6 +383,7 @@ export interface DesktopApi {
   /** Writes the MCP entry to the user's Claude config, with their consent. */
   writeMcpConfig(): Promise<{ written: boolean; path: string; detail?: string }>;
   copyToClipboard(text: string): void;
+  openScriptsFolder(): Promise<void>;
 
   getUpdateState(): Promise<UpdateState>;
   checkForUpdates(): void;
@@ -397,6 +402,7 @@ export const IPC = {
   getMcpSetup: 'mcp:get-setup',
   writeMcpConfig: 'mcp:write-config',
   copyToClipboard: 'shell:copy',
+  openScriptsFolder: 'strategies:open-folder',
   getUpdateState: 'update:get-state',
   checkForUpdates: 'update:check',
   installUpdate: 'update:install',
