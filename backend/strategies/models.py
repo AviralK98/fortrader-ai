@@ -159,6 +159,13 @@ class Strategy(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
 
 
+#: Fixed rather than "now". The built-in strategy is defined in code and
+#: never changes, so a timestamp that moves on every read is not only
+#: untrue -- it also defeats anything keyed on it, which is exactly how
+#: the signal cache came to miss every single request.
+BUILTIN_TIMESTAMP = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+
 def builtin_strategy() -> Strategy:
     """The engine as shipped. Synthesised, never read from the database."""
     return Strategy(
@@ -167,4 +174,6 @@ def builtin_strategy() -> Strategy:
         parameters=StrategyParameters.from_config(DEFAULT_CONFIG),
         notes=BUILTIN_NOTES,
         builtin=True,
+        created_at=BUILTIN_TIMESTAMP,
+        updated_at=BUILTIN_TIMESTAMP,
     )

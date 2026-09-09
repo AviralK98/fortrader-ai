@@ -141,6 +141,26 @@ class CandleRepository:
 
         return candles
 
+    def fingerprint(self, symbol: str, timeframe: Timeframe) -> tuple[int, str]:
+        """Identify the current contents of one series, cheaply.
+
+        The row count and the newest timestamp together change whenever
+        a bar is added, replaced or pruned, which is every way this table
+        moves. Served entirely from the covering index on
+        (symbol, timeframe, timestamp) in about half a millisecond, so
+        callers can ask before every computation rather than guessing
+        with a TTL.
+        """
+        row = self._db.connection.execute(
+            """
+            SELECT COUNT(*) AS n, MAX(timestamp) AS latest
+            FROM candles WHERE symbol = ? AND timeframe = ?
+            """,
+            (symbol.upper(), timeframe.value),
+        ).fetchone()
+
+        return (int(row["n"]), str(row["latest"] or ""))
+
     def count(self, symbol: str, timeframe: Timeframe) -> int:
         row = self._db.connection.execute(
             "SELECT COUNT(*) AS n FROM candles WHERE symbol = ? AND timeframe = ?",
@@ -731,6 +751,10 @@ class SqliteCandleProvider(CandleProvider):
 
     def available(self, symbol: str, timeframe: Timeframe) -> int:
         return self._repo.count(symbol, timeframe)
+
+    def fingerprint(self, symbol: str, timeframe: Timeframe) -> tuple[int, str]:
+        """What this series currently holds. See the repository method."""
+        return self._repo.fingerprint(symbol, timeframe)
 
     def coverage(self) -> list[SeriesCoverage]:
         return self._repo.coverage()

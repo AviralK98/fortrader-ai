@@ -15,6 +15,19 @@ import { connectShellEvents } from './store/shell';
 const STATUS_INTERVAL = 2_000;
 const ACCOUNT_INTERVAL = 3_000;
 
+/**
+ * The readings polled fastest, now that a repeat request is free.
+ *
+ * These used to sit at 10-15s because each one recomputed indicators
+ * across four timeframes -- about 130ms of pandas per request. The
+ * backend now reuses a reading until the bars underneath it change, so
+ * an unchanged answer costs a fingerprint lookup and nothing else, and
+ * polling often is no longer a reason to be careful. The visible effect
+ * is that a new bar reaches the panel in about two seconds instead of
+ * up to fifteen.
+ */
+const ANALYSIS_INTERVAL = 2_000;
+
 export function App(): JSX.Element {
   useEffect(() => connectShellEvents(), []);
 
@@ -74,7 +87,7 @@ export function App(): JSX.Element {
     queryFn: () =>
       backend.analysis(chart.data!.symbol, chart.data!.timeframe),
     enabled: Boolean(chart.data?.symbol),
-    refetchInterval: 10_000,
+    refetchInterval: ANALYSIS_INTERVAL,
     retry: false,
   });
 
@@ -82,7 +95,7 @@ export function App(): JSX.Element {
     queryKey: ['signal', chart.data?.symbol, chart.data?.timeframe],
     queryFn: () => backend.signal(chart.data!.symbol, chart.data!.timeframe),
     enabled: Boolean(chart.data?.symbol),
-    refetchInterval: 10_000,
+    refetchInterval: ANALYSIS_INTERVAL,
     retry: false,
   });
 
@@ -90,7 +103,7 @@ export function App(): JSX.Element {
     queryKey: ['timeframes', chart.data?.symbol],
     queryFn: () => backend.timeframes(chart.data!.symbol),
     enabled: Boolean(chart.data?.symbol),
-    refetchInterval: 15_000,
+    refetchInterval: ANALYSIS_INTERVAL,
     retry: false,
   });
 

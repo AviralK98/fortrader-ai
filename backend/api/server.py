@@ -27,6 +27,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.analysis.engine import MINIMUM_BARS, AnalysisResult, analyse
+from backend.analysis.memo import Memo
 from backend.api import schemas
 from backend.backtest.engine import BacktestParams, BacktestResult, run_backtest
 from backend.chat import providers as chat_providers
@@ -232,6 +233,32 @@ def _active_config(ctx: AppContext) -> SignalConfig:
     return ctx.strategies.active().parameters.to_config()
 
 
+#: One reading per (series, parameters) pair, reused until the bars move.
+_signal_memo: Memo[Signal] = Memo("signal")
+_analysis_memo: Memo[AnalysisResult] = Memo("analysis")
+_multi_memo: Memo[MultiTimeframeResult] = Memo("multi-timeframe")
+
+
+def _series_fingerprint(
+    ctx: AppContext, symbol: str, timeframes: tuple[Timeframe, ...]
+) -> tuple[tuple[int, str], ...]:
+    """What every series this reading depends on currently holds.
+
+    A signal combines several timeframes, so it is only still valid if
+    none of them has moved. Missing a series is itself a fingerprint --
+    it changes the moment bars arrive for it.
+    """
+    prints: list[tuple[int, str]] = []
+
+    for timeframe in timeframes:
+        try:
+            prints.append(ctx.candles.fingerprint(symbol, timeframe))
+        except Exception:
+            prints.append((-1, ""))
+
+    return tuple(prints)
+
+
 def _signal_for(
     ctx: AppContext, symbol: str, timeframe: Timeframe, limit: int = 500
 ) -> Signal:
@@ -247,14 +274,40 @@ def _signal_for(
     signal with nothing.
     """
     strategy = ctx.strategies.active()
+    config = strategy.parameters.to_config()
 
-    signal, _ = signal_with_timeframes(
+    # Keyed on everything the answer depends on, and validated against
+    # the bars themselves rather than a clock.
+    # Keyed on the parameters themselves rather than a timestamp: what
+    # the answer depends on is the numbers, and a row's updated_at can
+    # move without any of them changing.
+    key = (
         symbol,
-        timeframe,
-        ctx.candles,
-        config=strategy.parameters.to_config(),
-        limit=limit,
+        timeframe.value,
+        limit,
+        strategy.id,
+        strategy.kind,
+        strategy.script,
+        strategy.parameters.model_dump_json(),
     )
+    fingerprint = _series_fingerprint(
+        ctx, symbol, (timeframe, *config.timeframes)
+    )
+
+    cached = _signal_memo.get(key, fingerprint)
+
+    if cached is not None:
+        signal = cached
+    else:
+        signal, _ = signal_with_timeframes(
+            symbol,
+            timeframe,
+            ctx.candles,
+            config=config,
+            limit=limit,
+        )
+
+        _signal_memo.put(key, fingerprint, signal)
 
     if strategy.kind != "script" or not strategy.script:
         return signal
@@ -393,9 +446,21 @@ def _register_routes(app: FastAPI) -> None:
         and `warnings` say so rather than the endpoint failing or the
         numbers being quietly wrong.
         """
-        candles = ctx.candles.get_candles(symbol, timeframe, limit)
+        upper = symbol.upper()
+        key = (upper, timeframe.value, limit)
+        fingerprint = _series_fingerprint(ctx, upper, (timeframe,))
 
-        return analyse(symbol.upper(), timeframe, candles)
+        cached = _analysis_memo.get(key, fingerprint)
+
+        if cached is not None:
+            return cached
+
+        candles = ctx.candles.get_candles(symbol, timeframe, limit)
+        result = analyse(upper, timeframe, candles)
+
+        _analysis_memo.put(key, fingerprint, result)
+
+        return result
 
     @app.get("/api/signal", response_model=Signal)
     def get_signal(
@@ -759,9 +824,21 @@ def _register_routes(app: FastAPI) -> None:
         limit: Annotated[int, Query(ge=MINIMUM_BARS, le=5000)] = 500,
     ) -> MultiTimeframeResult:
         """Weighted M1/M5/M15/H1 view. Timeframes lacking history are excluded."""
-        return analyse_timeframes(
-            symbol.upper(), ctx.candles, _active_config(ctx), limit
-        )
+        upper = symbol.upper()
+        config = _active_config(ctx)
+        key = (upper, limit, tuple(sorted(t.value for t in config.timeframes)))
+        fingerprint = _series_fingerprint(ctx, upper, config.timeframes)
+
+        cached = _multi_memo.get(key, fingerprint)
+
+        if cached is not None:
+            return cached
+
+        result = analyse_timeframes(upper, ctx.candles, config, limit)
+
+        _multi_memo.put(key, fingerprint, result)
+
+        return result
 
     @app.get("/api/candles/coverage", response_model=schemas.CoverageResponse)
     def get_coverage(ctx: Ctx) -> schemas.CoverageResponse:
