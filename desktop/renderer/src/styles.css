@@ -51,6 +51,13 @@
   --ambient-a: var(--accent);
   --ambient-b: #7c5cf0;
 
+  /* Wave colours, kept separate from the washes so the light presets can
+     darken them without also darkening the background they sit on. Still
+     derived from the accent, so the waves follow the user's choice. */
+  --wave-a: var(--accent);
+  --wave-b: var(--ambient-b);
+  --wave-sheen: 42%;
+
   /* Written by appearance.ts; these are the pre-script fallbacks. */
   --glass-blur: 12px;
   --glass-alpha: 0.73;
@@ -129,6 +136,12 @@
 }
 
 [data-theme='frost'] {
+  /* Darkened against a pale ground; a light band on a light
+     field has no contrast at any opacity, and a white crest
+     highlight is invisible, so the sheen is off here. */
+  --wave-a: color-mix(in srgb, var(--accent) 62%, #0a1a33);
+  --wave-b: color-mix(in srgb, var(--ambient-b) 52%, #0a1a33);
+  --wave-sheen: 0%;
   --bg: #eef2f8;
   --bg-deep: #e3e9f2;
   --bg-panel: #ffffff;
@@ -149,6 +162,12 @@
 }
 
 [data-theme='paper'] {
+  /* Darkened against a pale ground; a light band on a light
+     field has no contrast at any opacity, and a white crest
+     highlight is invisible, so the sheen is off here. */
+  --wave-a: color-mix(in srgb, var(--accent) 58%, #241d10);
+  --wave-b: color-mix(in srgb, var(--ambient-b) 46%, #241d10);
+  --wave-sheen: 0%;
   --bg: #f6f4ef;
   --bg-deep: #ece8e0;
   --bg-panel: #fffdf9;
@@ -1762,12 +1781,12 @@ body::before {
   background:
     radial-gradient(
       34% 30% at 14% 10%,
-      color-mix(in srgb, var(--ambient-a) 62%, transparent),
+      color-mix(in srgb, var(--ambient-a) 42%, transparent),
       transparent 68%
     ),
     radial-gradient(
       38% 34% at 88% 84%,
-      color-mix(in srgb, var(--ambient-b) 58%, transparent),
+      color-mix(in srgb, var(--ambient-b) 38%, transparent),
       transparent 70%
     ),
     radial-gradient(
@@ -1877,26 +1896,28 @@ body {
 /* The glass brightens faintly near the cursor. --px/--py are written by
    a rAF-throttled listener; with the setting off the element is not
    rendered at all rather than merely transparent. */
+/* Animatable custom property. A repeating gradient's stop positions
+   cannot be transitioned directly; registering the phase with a type
+   lets the browser interpolate it, which is what makes the rings travel
+   rather than jump. */
+/* Retired: the pointer now raises the wave bands instead. Kept as a
+   no-op so any stray markup cannot paint a stale circle. */
 .pointer-light {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  border-radius: inherit;
-  opacity: 0.55;
-  background: radial-gradient(
-    260px circle at var(--px, 50%) var(--py, 0%),
-    color-mix(in srgb, var(--accent) 16%, transparent),
-    transparent 70%
-  );
+  display: none;
 }
 
+/* One full period equals the ring spacing, so the loop is seamless. */
 [data-pointer='off'] .pointer-light {
   display: none;
 }
 
 /* Content sits above the lighting layer. */
-.analysis-panel > * {
+/* Everything except the lighting layer, which must stay absolute. This
+   rule and .pointer-light have equal specificity, so without the :not()
+   this one wins, the layer becomes a real grid item, and it takes the
+   first row -- pushing the header into the 1fr row and stretching it
+   into a tall empty band. */
+.analysis-panel > *:not(.pointer-light) {
   position: relative;
   z-index: 1;
 }
@@ -1945,15 +1966,6 @@ body {
 .swatch {
   width: 14px;
   height: 14px;
-}
-
-.sheet__scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  background: rgb(0 0 0 / 40%);
-  backdrop-filter: blur(2px);
-  animation: fade-in var(--fast) var(--ease);
 }
 
 .sheet {
@@ -2195,4 +2207,852 @@ body {
 
 .toggle--on .toggle__knob {
   transform: translateX(18px);
+}
+
+/* ---------------------------------------------------------------- */
+/* Single-view panel                                                 */
+/* ---------------------------------------------------------------- */
+
+/* The panel is now a fixed head, one scrolling view, and a fixed note.
+   Overrides the stacked-sections layout above: only one view is on
+   screen, so it gets the height rather than sharing it with ten others. */
+.analysis-panel {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Scoped through the parent so it outranks the `> *:not(...)` rule
+   above, which is two classes and would otherwise reset z-index to 1
+   and put the open dropdown back behind the views. */
+.analysis-panel > .panel-head {
+  position: relative;
+  /* Above .panel-views. Both are children of .analysis-panel, which
+     gives every child z-index 1 so they clear the pointer-light layer --
+     equal z-index means the later sibling wins, and the views were
+     painting straight over the open dropdown. */
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.panel-head__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.view-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px 4px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.view-picker:hover {
+  background: var(--bg-raised);
+  border-color: var(--border);
+}
+
+.view-picker__icon {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--accent);
+}
+
+.view-picker__icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.view-picker__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.view-picker svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--text-faint);
+}
+
+.view-menu {
+  position: absolute;
+  top: calc(100% - 2px);
+  left: 8px;
+  right: 8px;
+  z-index: 30;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  /* Solid, not glass. A menu sits over live readings and has to be
+     read at a glance; translucency here costs legibility for nothing. */
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-md);
+  animation: menu-in var(--fast) var(--ease);
+}
+
+.view-menu__group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-bottom: 2px;
+}
+
+/* Separated by space and a hairline rather than by a loud label. */
+.view-menu__group + .view-menu__group {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.view-menu__heading {
+  padding: 2px 10px 5px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-faint) 80%, transparent);
+}
+
+.view-menu__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--fast) var(--ease),
+    color var(--fast) var(--ease);
+}
+
+.view-menu__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--text-faint);
+  transition: color var(--fast) var(--ease);
+}
+
+.view-menu__icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.view-menu__item:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+}
+
+.view-menu__item:hover .view-menu__icon {
+  color: var(--accent);
+}
+
+/* The active row is marked by a short accent bar at its edge rather than
+   a filled block: it reads as "you are here" without the row shouting
+   louder than the ten around it. */
+.view-menu__item--on {
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.view-menu__item--on .view-menu__icon {
+  color: var(--accent);
+}
+
+.view-menu__item--on::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 2px;
+  height: 15px;
+  transform: translateY(-50%);
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+
+/* The one visible view owns the remaining height and scrolls inside
+   itself, so the panel no longer has a single long scrollbar down
+   everything at once. */
+.panel-views {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* One frame for every view.
+   Each component used to bring its own 10-12px, so the eleven views were
+   subtly different sizes as you switched between them. Setting it here
+   means switching view changes the content and nothing else. */
+.view {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.view > * {
+  padding: 15px 14px;
+}
+
+.view > .table-scroll {
+  padding: 12px 10px;
+}
+
+.view > table {
+  padding: 0;
+  margin: 8px 0;
+}
+
+/* Vertical rhythm between the blocks inside a view. The roots are plain
+   stacks -- the grids live one level further down, so this separates
+   them without touching how they lay out internally. */
+.view > *:not(.table-scroll) > * + * {
+  margin-top: 12px;
+}
+
+.view[hidden] {
+  display: none;
+}
+
+/* A view is the whole panel now, so its content should breathe rather
+   than sit in a boxed card. */
+.view > .panel-section,
+.view > * > .panel-section {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  border-radius: 0;
+}
+
+.view > .panel-section::after {
+  display: none;
+}
+
+/* Tables and lists get the full width back. */
+.view table {
+  width: 100%;
+}
+
+.safety-note {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--text-faint);
+}
+
+
+/* ---------------------------------------------------------------- */
+/* Wave bands                                                        */
+/* ---------------------------------------------------------------- */
+
+.waves {
+  position: fixed;
+  inset: auto 0 0 0;
+  height: 64%;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* The crest rises toward the pointer. The pointer only sets a target;
+   this transition decides how it is reached, and a long ease-out is what
+   makes the water glide up instead of tracking the cursor rigidly.
+   Separate from the drift, which lives on the layers inside, so the two
+   transforms never fight. */
+.waves__lift {
+  position: absolute;
+  inset: 0;
+  transform: translate3d(
+    calc((var(--wave-shift, 0.5) - 0.5) * -40px),
+    calc(var(--wave-lift, 0) * -150px),
+    0
+  );
+  transition: transform 1.6s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .waves__lift {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* Twice the width of the container, carrying two periods, and moved by
+   a transform rather than by mask-position: transform is composited on
+   the GPU, so three drifting layers cost nothing next to a live chart.
+   Sliding exactly one period leaves the loop seamless. */
+.waves__layer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  mask-size: 50% 100%;
+  mask-repeat: repeat-x;
+  -webkit-mask-size: 50% 100%;
+  -webkit-mask-repeat: repeat-x;
+  will-change: transform;
+  animation: wave-drift linear infinite;
+}
+
+/* Light on the crests.
+   The gradient is top-weighted and uniform across the width, but the
+   wave mask clips it -- so it survives only where the wave rises into
+   it, which is the peaks. Where the wave dips, the highlight is masked
+   away. Light lands on the crests and nowhere else, without needing to
+   know where the crests are. */
+.waves__layer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #fff var(--wave-sheen), transparent) 0,
+    color-mix(in srgb, #fff calc(var(--wave-sheen) / 4), transparent) 7%,
+    transparent 18%
+  );
+  mix-blend-mode: soft-light;
+}
+
+@keyframes wave-drift {
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.waves__layer--back {
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--wave-b) 58%, transparent),
+    color-mix(in srgb, var(--wave-a) 26%, transparent) 55%,
+    color-mix(in srgb, var(--wave-b) 20%, transparent)
+  );
+  mask-image: url("data:image/svg+xml,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201440%20320'%20preserveAspectRatio='none'><path%20d='M0,150%20C240,80%20480,220%20720,150%20C960,80%201200,220%201440,150%20L1440,320%20L0,320%20Z'%20fill='%23000'/></svg>");
+  -webkit-mask-image: url("data:image/svg+xml,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201440%20320'%20preserveAspectRatio='none'><path%20d='M0,150%20C240,80%20480,220%20720,150%20C960,80%201200,220%201440,150%20L1440,320%20L0,320%20Z'%20fill='%23000'/></svg>");
+  animation-duration: 34s;
+  opacity: 0.9;
+}
+
+.waves__layer--mid {
+  background: linear-gradient(
+    195deg,
+    color-mix(in srgb, var(--wave-a) 50%, transparent),
+    color-mix(in srgb, var(--wave-b) 30%, transparent) 60%,
+    color-mix(in srgb, var(--wave-a) 16%, transparent)
+  );
+  /* Only the middle band frosts what is behind it: three stacked
+     backdrop filters is three full-screen blurs a frame, beside a live
+     chart, for an effect two of them would not add to. */
+  backdrop-filter: blur(10px) saturate(1.5);
+  mask-image: url("data:image/svg+xml,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201440%20320'%20preserveAspectRatio='none'><path%20d='M0,190%20C240,138%20480,242%20720,190%20C960,138%201200,242%201440,190%20L1440,320%20L0,320%20Z'%20fill='%23000'/></svg>");
+  -webkit-mask-image: url("data:image/svg+xml,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201440%20320'%20preserveAspectRatio='none'><path%20d='M0,190%20C240,138%20480,242%20720,190%20C960,138%201200,242%201440,190%20L1440,320%20L0,320%20Z'%20fill='%23000'/></svg>");
+  animation-duration: 23s;
+  animation-direction: reverse;
+  opacity: 0.85;
+}
+
+.waves__layer--front {
+  background: linear-gradient(
+    170deg,
+    color-mix(in srgb, var(--wave-a) 66%, transparent),
+    color-mix(in srgb, var(--wave-a) 40%, transparent) 50%,
+    color-mix(in srgb, var(--wave-b) 22%, transparent)
+  );
+  mask-image: url("data:image/svg+xml,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201440%20320'%20preserveAspectRatio='none'><path%20d='M0,232%20C240,194%20480,270%20720,232%20C960,194%201200,270%201440,232%20L1440,320%20L0,320%20Z'%20fill='%23000'/></svg>");
+  -webkit-mask-image: url("data:image/svg+xml,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201440%20320'%20preserveAspectRatio='none'><path%20d='M0,232%20C240,194%20480,270%20720,232%20C960,194%201200,270%201440,232%20L1440,320%20L0,320%20Z'%20fill='%23000'/></svg>");
+  animation-duration: 17s;
+  opacity: 0.8;
+}
+
+[data-motion='off'] .waves__layer {
+  animation: none;
+}
+
+[data-motion='lively'] .waves__layer--back {
+  animation-duration: 18s;
+}
+
+[data-motion='lively'] .waves__layer--mid {
+  animation-duration: 12s;
+}
+
+[data-motion='lively'] .waves__layer--front {
+  animation-duration: 9s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .waves__layer {
+    animation: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Status chips                                                      */
+/* ---------------------------------------------------------------- */
+
+/* An instrument readout rather than a row of pills: a state bar, the
+   label above its value, and hairline rules between. Containers around
+   every reading add eleven borders to a strip that is glanced at, not
+   studied -- the divider does the same separating work with far less
+   ink. */
+.status-strip .indicators {
+  gap: 0;
+}
+
+.status-strip .indicator {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 2px 16px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.status-strip .indicator + .indicator {
+  border-left: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.indicator__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.05;
+}
+
+.status-strip .indicator__label {
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.status-strip .indicator__value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The dot becomes a lit bar. It carries the state at a glance and gives
+   each reading a left edge to sit against, which is what makes the row
+   scan as a cluster of gauges. */
+.status-strip .dot {
+  width: 3px;
+  height: 22px;
+  border-radius: 999px;
+  flex: none;
+  background: var(--text-faint);
+  box-shadow: none;
+}
+
+.status-strip .dot--ready {
+  background: linear-gradient(
+    180deg,
+    var(--positive),
+    color-mix(in srgb, var(--positive) 55%, transparent)
+  );
+  box-shadow: 0 0 12px -1px var(--positive);
+  animation: none;
+}
+
+.status-strip .dot--error {
+  background: linear-gradient(
+    180deg,
+    var(--negative),
+    color-mix(in srgb, var(--negative) 55%, transparent)
+  );
+  box-shadow: 0 0 12px -1px var(--negative);
+}
+
+.status-strip .dot--pending {
+  background: linear-gradient(
+    180deg,
+    var(--warning),
+    color-mix(in srgb, var(--warning) 55%, transparent)
+  );
+  box-shadow: 0 0 10px -2px var(--warning);
+}
+
+/* Only a fault is coloured. If every value were tinted the one that
+   matters would not stand out. */
+.indicator--error .indicator__value {
+  color: var(--negative);
+}
+
+.indicator--pending .indicator__value {
+  color: var(--warning);
+}
+
+.brand h1 {
+  font-size: 12.5px;
+  font-weight: 620;
+  letter-spacing: 0.16em;
+}
+
+.brand__mark {
+  width: 4px;
+  height: 20px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 0 14px -2px var(--accent);
+}
+
+/* A hairline of accent along the bottom edge, brightest under the
+   readings, so the strip is seated rather than merely stacked. */
+.status-strip::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 40%, transparent) 65%,
+    color-mix(in srgb, var(--accent) 12%, transparent)
+  );
+}
+
+.status-strip {
+  position: relative;
+}
+
+
+/* The readings belong next to the brand, not banished to the far edge:
+   they are the thing being read, and the appearance control is not. The
+   auto margin keeps that control pinned right while everything else
+   stays left. */
+.status-strip {
+  justify-content: flex-start;
+  gap: 18px;
+}
+
+.status-strip .indicators {
+  margin-right: auto;
+}
+
+/* ---------------------------------------------------------------- */
+/* Command palette                                                   */
+/* ---------------------------------------------------------------- */
+
+.palette__trigger {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition:
+    color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease);
+}
+
+.palette__trigger:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.palette__trigger svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+.palette__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  padding-top: 13vh;
+  background: rgb(0 0 0 / 45%);
+  backdrop-filter: blur(3px);
+  animation: fade-in var(--fast) var(--ease);
+}
+
+.palette {
+  width: min(560px, 92vw);
+  max-height: 62vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-panel) 97%, transparent);
+  backdrop-filter: blur(24px) saturate(1.4);
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
+  animation: palette-in var(--slow) var(--ease);
+}
+
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.985);
+  }
+}
+
+.palette__search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.palette__input {
+  flex: 1;
+  min-width: 0;
+  padding: 15px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.palette__input:focus {
+  outline: none;
+}
+
+.palette__input::placeholder {
+  color: var(--text-faint);
+}
+
+.palette__kbd {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-inset);
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.palette__list {
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.palette__heading {
+  display: block;
+  padding: 8px 10px 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.palette__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Highlight follows the keyboard, and the mouse moves the keyboard
+   cursor rather than fighting it -- so there is only ever one
+   highlighted row however you are driving it. */
+.palette__item--on {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text);
+}
+
+.palette__icon {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--text-faint);
+}
+
+.palette__item--on .palette__icon {
+  color: var(--accent);
+}
+
+.palette__icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.palette__label {
+  flex: none;
+}
+
+.palette__hint {
+  margin-left: auto;
+  padding-left: 12px;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette__empty {
+  margin: 0;
+  padding: 22px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* ---------------------------------------------------------------- */
+/* Signal view spacing                                               */
+/* ---------------------------------------------------------------- */
+
+/* Airier than it was, without forcing the card to fill the panel.
+   min-height:100% plus space-between pushed the content past the
+   viewport and introduced the scrollbar this view should never need --
+   spacing that fits beats spacing that spreads. */
+.view > .signal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.view > .signal-card > .signal-head {
+  margin-bottom: 0;
+}
+
+.view > .signal-card > .reasons {
+  margin-top: 0;
+}
+
+.view .score-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.view .score-row {
+  gap: 12px;
+}
+
+.view .score-row__track {
+  height: 6px;
+  border-radius: 999px;
+}
+
+.view .score-row__fill {
+  border-radius: 999px;
+}
+
+.view .score-row__label,
+.view .score-row__value {
+  font-size: 11px;
+}
+
+/* The headline still reads as the headline, just not at poster size. */
+.view .signal-head__value,
+.view .signal-head__bias {
+  font-size: 23px;
+  letter-spacing: -0.02em;
+}
+
+.view .mtf {
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+}
+
+.view .mtf__row {
+  padding: 2px 0;
+}
+
+.view .reasons li {
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------------- */
+/* Chat fills its view                                               */
+/* ---------------------------------------------------------------- */
+
+/* The composer belongs at the bottom of the panel, not floating in the
+   middle with dead space beneath it. The card takes the full height and
+   the log absorbs whatever is left over. */
+.view > .chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.view > .chat > .chat__log {
+  /* Was capped at 320px, which is why the conversation sat in a short
+     box with the rest of the panel empty below it. */
+  flex: 1;
+  max-height: none;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Pinned under the log rather than pushed by it. */
+.view > .chat > .chat__composer {
+  flex: none;
+  margin-top: 12px;
+}
+
+.view > .chat > .score-caveat {
+  flex: none;
+  margin-top: 10px;
 }

@@ -35,7 +35,20 @@
         root.dataset.motion = a.motion || 'subtle';
         root.dataset.pointer = a.pointerLight === false ? 'off' : 'on';
 
-        var accent = accents[a.accent] || accents.teal;
+        // Falls back to the preset's own accent, matching
+        // appearance.ts, so the first frame is never the wrong colour.
+        var presetAccent = {
+          fortrade: 'blue',
+          aurora: 'teal',
+          graphite: 'indigo',
+          oled: 'violet',
+          frost: 'blue',
+          paper: 'green',
+        };
+        var accent =
+          accents[a.accent] ||
+          accents[presetAccent[root.dataset.theme]] ||
+          accents.blue;
         root.style.setProperty('--accent', accent[0]);
         root.style.setProperty('--accent-strong', accent[1]);
         root.style.setProperty('--radius', radii[a.radius] || radii.soft);

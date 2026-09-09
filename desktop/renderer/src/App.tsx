@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AccountBar } from './components/AccountBar';
 import { AnalysisPanel } from './components/AnalysisPanel';
 import { FortradeSlot } from './components/FortradeSlot';
+import { Waves } from './components/Waves';
 import { StatusStrip } from './components/StatusStrip';
 import { UpdateBanner } from './components/UpdateBanner';
 import { BackendNotReadyError, backend } from './services/backend';
@@ -100,6 +101,7 @@ export function App(): JSX.Element {
 
   return (
     <div className="app">
+      <Waves />
       <StatusStrip
         status={status.data}
         backendReachable={!status.isError}

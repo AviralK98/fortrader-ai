@@ -11,6 +11,7 @@ import {
   storedAppearance,
   type Appearance,
 } from '../appearance';
+import { APPEARANCE_EVENT, onCommand } from '../commands';
 
 /**
  * Appearance settings.
@@ -23,10 +24,18 @@ export function AppearancePanel(): JSX.Element {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<Appearance>(() => storedAppearance());
   const closeRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     applyAppearance(state);
   }, [state]);
+
+  // Merged rather than replaced: the palette sends only what it changes.
+  useEffect(() => {
+    return onCommand<Partial<Appearance>>(APPEARANCE_EVENT, (patch) =>
+      setState((prev) => ({ ...prev, ...patch })),
+    );
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -35,18 +44,29 @@ export function AppearancePanel(): JSX.Element {
       if (event.key === 'Escape') setOpen(false);
     };
 
+    // Closes on a click outside. There is no full-screen scrim: this
+    // sheet sits inside the analysis panel's column and never covers the
+    // chart, so dimming the window would darken a region the sheet is
+    // not over. Hiding the chart instead -- which is what this did --
+    // blanked the whole application to show a 340px panel.
+    const dismiss = (event: MouseEvent): void => {
+      if (!sheetRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+
     document.addEventListener('keydown', escape);
+    // Deferred a frame: the click that opened the sheet is still
+    // propagating, and would otherwise close it immediately.
+    const timer = window.setTimeout(
+      () => document.addEventListener('mousedown', dismiss),
+      0,
+    );
+
     closeRef.current?.focus();
 
-    // Fortrade's chart is a native view composited above this page, so
-    // no z-index can put the sheet in front of it. Hiding it while the
-    // sheet is open is the only way the panel is fully visible -- and it
-    // lets the scrim actually dim the whole window.
-    window.desktop.setFortradeVisible(false);
-
     return () => {
+      window.clearTimeout(timer);
       document.removeEventListener('keydown', escape);
-      window.desktop.setFortradeVisible(true);
+      document.removeEventListener('mousedown', dismiss);
     };
   }, [open]);
 
@@ -54,6 +74,16 @@ export function AppearancePanel(): JSX.Element {
     key: K,
     value: Appearance[K],
   ): void => setState((prev) => ({ ...prev, [key]: value }));
+
+  /**
+   * Choosing a preset adopts the accent it was designed around.
+   *
+   * The accent row still overrides it straight afterwards, so this is a
+   * sensible starting point rather than a lock — and it means a preset
+   * never lands with a colour that fights its own surfaces.
+   */
+  const choosePreset = (id: string): void =>
+    setState((prev) => ({ ...prev, preset: id, accent: presetFor(id).accent }));
 
   const preset = presetFor(state.preset);
 
@@ -85,12 +115,8 @@ export function AppearancePanel(): JSX.Element {
       {open &&
         createPortal(
           <>
-          <div
-            className="sheet__scrim"
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
           <aside
+            ref={sheetRef}
             className="sheet"
             role="dialog"
             aria-modal="true"
@@ -120,7 +146,7 @@ export function AppearancePanel(): JSX.Element {
                       className={`preset${
                         option.id === state.preset ? ' preset--on' : ''
                       }`}
-                      onClick={() => set('preset', option.id)}
+                      onClick={() => choosePreset(option.id)}
                       title={option.hint}
                     >
                       <span
@@ -213,9 +239,9 @@ export function AppearancePanel(): JSX.Element {
 
               <section className="field field--row">
                 <span className="field__label">
-                  Pointer lighting
+                  Waves follow the pointer
                   <span className="field__note">
-                    The glass catches a faint highlight near the cursor.
+                    The bands rise toward the cursor and settle back.
                   </span>
                 </span>
                 <button

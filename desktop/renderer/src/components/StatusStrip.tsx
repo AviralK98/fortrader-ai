@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 
 import type { ComponentStatus, SystemStatus } from '../../../shared/types';
 import { AppearancePanel } from './AppearancePanel';
+import { CommandPalette } from './CommandPalette';
 
 interface Props {
   status: SystemStatus | undefined;
@@ -22,12 +23,24 @@ function Indicator({
   value: string;
 }): JSX.Element {
   return (
-    <div className="indicator" title={`${label}: ${value}`}>
-      <span className="indicator__label">{label}</span>
+    <div
+      className={`indicator indicator--${state.toLowerCase()}`}
+      title={`${label}: ${value}`}
+    >
       <Dot state={state} />
-      <span className="indicator__value">{value}</span>
+      <span className="indicator__text">
+        <span className="indicator__label">{label}</span>
+        <span className="indicator__value">{value}</span>
+      </span>
     </div>
   );
+}
+
+/** CONNECTED -> Connected, FORTRADE_LOADING -> Fortrade loading. */
+function readable(state: string): string {
+  const words = state.replace(/_/g, ' ').toLowerCase();
+
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 /** Formats data age so the UI never implies stale data is live. */
@@ -56,14 +69,13 @@ export function StatusStrip({ status, backendReachable }: Props): JSX.Element {
       <div className="brand">
         <span className="brand__mark" aria-hidden="true" />
         <h1>FORTRADER AI</h1>
-        <span className="badge badge--research">RESEARCH ONLY</span>
       </div>
 
       <div className="indicators">
         <Indicator
           label="Fortrade"
           state={status?.fortrade ?? 'PENDING'}
-          value={status?.state.replace(/_/g, ' ') ?? 'Starting'}
+          value={status ? readable(status.state) : 'Starting'}
         />
         <Indicator
           label="Backend"
@@ -76,9 +88,10 @@ export function StatusStrip({ status, backendReachable }: Props): JSX.Element {
           value={status?.analysis_engine === 'READY' ? 'Ready' : 'Pending'}
         />
         <Indicator label="Data" state={data.state} value={data.value} />
-
-        <AppearancePanel />
       </div>
+
+      <CommandPalette />
+      <AppearancePanel />
     </header>
   );
 }

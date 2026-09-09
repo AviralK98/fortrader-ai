@@ -22,14 +22,21 @@ export interface Preset {
   /** Two stops describing the preset, drawn as its swatch. */
   swatch: [string, string];
   light: boolean;
+  /**
+   * The accent this preset is designed around. Applied when the preset
+   * is chosen; the accent row still overrides it afterwards, so the
+   * default is a starting point rather than a lock.
+   */
+  accent: string;
   hint?: string;
 }
 
 const FORTRADE_PRESET: Preset = {
   id: 'fortrade',
   name: 'Fortrade',
-  swatch: ['#2f8fff', '#071322'],
+  swatch: ['#4c9aff', '#071322'],
   light: false,
+  accent: 'blue',
   hint: "The platform's own navy.",
 };
 
@@ -58,7 +65,8 @@ export const PRESETS: Preset[] = [
   {
     id: 'fortrade',
     name: 'Fortrade',
-    swatch: ['#2f8fff', '#071322'],
+    swatch: ['#4c9aff', '#071322'],
+    accent: 'blue',
     light: false,
     hint: "The platform's own navy.",
   },
@@ -66,20 +74,23 @@ export const PRESETS: Preset[] = [
     id: 'aurora',
     name: 'Aurora',
     swatch: ['#2ee6c5', '#0d1b2a'],
+    accent: 'teal',
     light: false,
     hint: 'Teal over deep blue.',
   },
   {
     id: 'graphite',
     name: 'Graphite',
-    swatch: ['#8fa3bd', '#12161c'],
+    swatch: ['#818cf8', '#12161c'],
+    accent: 'indigo',
     light: false,
     hint: 'Neutral and quiet.',
   },
   {
     id: 'oled',
     name: 'OLED',
-    swatch: ['#6aa9ff', '#000000'],
+    swatch: ['#a78bfa', '#000000'],
+    accent: 'violet',
     light: false,
     hint: 'True black, for dark rooms.',
   },
@@ -87,13 +98,15 @@ export const PRESETS: Preset[] = [
     id: 'frost',
     name: 'Frost',
     swatch: ['#1668d8', '#eef2f8'],
+    accent: 'blue',
     light: true,
     hint: 'Bright. Sits beside a dark chart.',
   },
   {
     id: 'paper',
     name: 'Paper',
-    swatch: ['#0f6b4f', '#f6f4ef'],
+    swatch: ['#35c98b', '#f6f4ef'],
+    accent: 'green',
     light: true,
     hint: 'Warm and low glare.',
   },
@@ -141,7 +154,7 @@ export interface Appearance {
 
 export const DEFAULT_APPEARANCE: Appearance = {
   preset: 'fortrade',
-  accent: 'teal',
+  accent: FORTRADE_PRESET.accent,
   glass: 55,
   radius: 'soft',
   motion: 'subtle',
