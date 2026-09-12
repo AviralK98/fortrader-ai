@@ -7,7 +7,8 @@ data (19,032 bars across 18 series), on an Intel Core i7-8750H (6 cores /
 No competing application was benchmarked side by side, apart from
 MetaTrader 5's install size, measured on the same machine. Other
 comparisons are against perception thresholds and how similar apps are
-built, not invented figures.
+built, not invented figures. For AI trading tools specifically, see
+[ai-tools-comparison.md](ai-tools-comparison.md).
 
 | Area | What | Fortrader AI | Compared with similar apps |
 |---|---|---|---|
