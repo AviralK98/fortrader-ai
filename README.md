@@ -236,6 +236,13 @@ are simulations over small samples, not evidence of an edge.
 Trading carries risk of loss. Any decision you take is yours, and the
 software is provided without warranty of any kind — see [LICENSE](LICENSE).
 
+## Performance
+
+Cached analysis comes back in 2–4 ms, and the app uses about 430 MB of
+memory and 0.3% of the machine's CPU while visible. Backtesting is the
+known weak spot. Full table and method:
+[docs/performance.md](docs/performance.md).
+
 ## Cost
 
 Nothing in this project requires payment:
