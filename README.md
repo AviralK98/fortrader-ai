@@ -238,11 +238,51 @@ software is provided without warranty of any kind — see [LICENSE](LICENSE).
 
 ## Performance
 
-Cached analysis comes back in 2–4 ms, and the app uses about 430 MB of
-memory and 0.3% of the machine's CPU while visible. Backtesting is the
-known weak spot. Full table and method:
-[docs/performance.md](docs/performance.md). Against AI trading tools:
+Measured on 12 September 2026 against v0.5.1 with real stored market
+data, on an Intel Core i7-8750H with 16 GB RAM running Windows 11. No
+competing application was benchmarked side by side apart from
+MetaTrader 5's install size. Method and limits:
+[docs/performance.md](docs/performance.md).
+
+| Area | What | Fortrader AI | Compared with similar apps |
+|---|---|---|---|
+| **Speed** | Reading analysis that is already computed | 2–4 ms | Better or equal — far below the ~100 ms at which a response stops feeling instant |
+| | Full panel refresh (10 requests, every 2 s) | 26 ms | Instant |
+| | First analysis on a new chart or new bar | 57–256 ms | Instant to a brief pause |
+| | User strategy script | 268 ms (first run 446 ms) | Brief pause |
+| | Backend startup (installed build) | 3.1 s | Normal |
+| | AI chat answer | 6 s simple, 14–22 s with market data | Comparable — the time is the model thinking |
+| | Backtest, 4,750 one-minute bars | **58 s** (range 50–90 s) | **Weak spot** — see below |
+| **Resources** | Memory, window visible | 426 MB | Heavier than a native terminal such as MT5; typical of an Electron app |
+| | ↳ Fortrade's web terminal page | ~187 MB | A browser tab runs the same page |
+| | ↳ Electron runtime (main, GPU, network) | 117 MB | |
+| | ↳ Python analysis backend | 69 MB | |
+| | ↳ Interface | 53 MB | |
+| | CPU, window visible | 0.3% of the machine (3.9% of one core) | Comparable |
+| | CPU, minimised | ~0% | Comparable |
+| | Installer | 137 MB Windows, 154 MB macOS | Heavier |
+| | Installed on disk | 470 MB | Heavier — MetaTrader 5 is 313 MB |
+| **Data** | Price delay behind Fortrade | Up to 2 s (1.2 s measured) | Behind native terminals, which react to every tick. Fine for analysis on one-minute charts and up; not for scalping |
+
+**Verdict.** Comparable for everyday use: fast where it is noticed, and
+heavier on memory and disk than a native terminal, as expected for an
+Electron app with a Python backend. Backtesting is the one area that is
+genuinely poor, because the engine rebuilds every indicator for every bar.
+
+### Compared with AI trading tools
+
+No competing AI tool was benchmarked: each row sets the measurements above
+against how such tools are built. Detail:
 [docs/ai-tools-comparison.md](docs/ai-tools-comparison.md).
+
+| Area | Fortrader AI | Typical AI trading tools | On par? |
+|---|---|---|---|
+| Getting analysis or a signal | 2–4 ms, calculated on your PC | Calculated on their servers, so every request makes a trip over the internet | **Yes, faster.** Nothing sent over the internet can match 2–4 ms on your own PC |
+| AI chat | 6–22 s, with nothing on screen until the whole answer is ready | Similar total time, but words appear as they are written | **Behind in feel.** A blank wait feels much slower than watching the answer type out |
+| Backtesting (replaying a strategy on past prices) | 58 s for 4,750 bars | Their testers do not rebuild every indicator on every bar, so a test this size is light work | **No.** The clear weak spot |
+| Live prices | Up to 2 s behind Fortrade | Tools with a direct market data feed update on every price change | **Behind** for fast trading; fine on one-minute charts and slower |
+| Memory and disk | 426 MB memory, 470 MB installed | Web tools run in a browser tab; desktop tools are similar | **On par** for a desktop app |
+| How good the predictions are | Not proven; the 0–100 score is not a win rate | Many advertise win rates, usually from their own tests | **Unknown for both.** Fortrader AI claims no win rate, and there is no fair side-by-side test yet |
 
 ## Cost
 
