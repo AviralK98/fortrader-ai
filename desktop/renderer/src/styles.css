@@ -1150,6 +1150,13 @@ body {
   border: 1px solid rgb(242 84 91 / 35%);
 }
 
+/* Not yet known is not a warning: keep it quiet, unlike a real account. */
+.badge--unknown {
+  background: rgb(140 150 165 / 12%);
+  color: var(--text-faint);
+  border: 1px solid rgb(140 150 165 / 30%);
+}
+
 .badge--research {
   background: rgb(76 154 255 / 12%);
   color: var(--accent);

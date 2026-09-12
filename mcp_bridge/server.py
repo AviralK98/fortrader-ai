@@ -27,7 +27,8 @@ JsonObject = dict[str, Any]
 mcp = MCPServer(
     "fortrader-ai",
     instructions=(
-        "Read-only research access to a Fortrade DEMO account through the "
+        "Read-only research access to the user's Fortrade account, demo or "
+        "real (see account_type), through the "
         "Fortrader AI desktop application. Provides account state, quotes, "
         "positions and OHLC candles. This server cannot place, modify or "
         "close trades, and must not be described as able to do so. "
@@ -69,7 +70,8 @@ def fortrade_system_status() -> JsonObject:
 def fortrade_get_account() -> JsonObject:
     """
     Get the Fortrade account balance, equity, open P&L, used margin,
-    available margin, currency and account type (DEMO or LIVE).
+    available margin, currency and account type: DEMO, LIVE (a real-money
+    account) or UNKNOWN.
     """
     return cast(JsonObject, _safe(lambda: client.get("/api/account")))
 

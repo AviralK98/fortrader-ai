@@ -87,8 +87,30 @@ describe('account extraction', () => {
     expect(extract(usd).account?.currency).toBe('USD');
   });
 
+  const SWITCH_TO_REAL =
+    '<div class="depsoitButton" data-nav="switchtoreal">SWITCH TO REAL</div>';
+  const REAL_DEPOSIT =
+    '<div class="depsoitButton hiddenButton" data-nav="deposit">DEPOSIT</div>';
+
   it('infers DEMO from the switch-to-real affordance', () => {
     expect(extract(fullPage()).account?.account_type).toBe('DEMO');
+  });
+
+  it('infers LIVE from the deposit button a real account shows', () => {
+    // Captured from a real account: the header slot that offers "switch to
+    // real" on a demo account holds a (hidden) deposit button instead.
+    const html = fullPage().replace(SWITCH_TO_REAL, REAL_DEPOSIT);
+
+    expect(html).not.toContain('switchtoreal');
+    expect(extract(html).account?.account_type).toBe('LIVE');
+  });
+
+  it('still reads DEMO when a deposit hook sits beside switch-to-real', () => {
+    // A real account never offers to switch to real, so that marker wins.
+    const html = fullPage().replace(SWITCH_TO_REAL, SWITCH_TO_REAL + REAL_DEPOSIT);
+
+    expect(html).toContain('data-nav="deposit"');
+    expect(extract(html).account?.account_type).toBe('DEMO');
   });
 
   it('reports UNKNOWN rather than guessing LIVE when absent', () => {

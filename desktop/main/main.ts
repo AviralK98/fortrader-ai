@@ -289,13 +289,18 @@ function createFortradeView(): void {
   if (isDomProbeEnabled()) {
     const outputPath = process.env.FORTRADER_DUMP_DOM_PATH ?? 'dom-probe.json';
 
-    // Give the SPA time to render the account panel and watchlist.
+    // Give the SPA time to render the account panel and watchlist, then keep
+    // the dump current: switching between demo and real happens inside the
+    // page, and the probe has to see both.
     fortradeView.view.webContents.once('did-stop-loading', () => {
-      setTimeout(() => {
+      const dump = (): void => {
         if (fortradeView) {
           void dumpFortradeDom(fortradeView.view.webContents, outputPath);
         }
-      }, 8_000);
+      };
+
+      setTimeout(dump, 8_000);
+      setInterval(dump, 20_000);
     });
   }
 }

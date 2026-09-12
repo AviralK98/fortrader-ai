@@ -84,7 +84,7 @@ Selectors currently in use, all discovered this way:
 | Spread | `.spread` |
 | Chart tab | `.chartSymbolTab`, active marked `clicked`, `.timeframe` child |
 | Position count | `.openPositionsCount` |
-| Account type | `[data-nav="switchtoreal"]` implies DEMO |
+| Account type | `[data-nav="switchtoreal"]` implies DEMO; `[data-nav="deposit"]` implies LIVE (a real account); neither is UNKNOWN |
 
 Prices are rendered split across two elements — `.sellValue` holds
 `1.352` and `.sellValueBig` holds `84` — so they are concatenated before

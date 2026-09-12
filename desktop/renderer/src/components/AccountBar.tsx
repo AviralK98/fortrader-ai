@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 
-import type { Account } from '../../../shared/types';
+import type { Account, AccountType } from '../../../shared/types';
 
 interface Props {
   account: Account | undefined;
@@ -12,6 +12,29 @@ const CURRENCY_SYMBOL: Record<string, string> = {
   USD: '$',
   EUR: '€',
   JPY: '¥',
+};
+
+/**
+ * Fortrade's own word: its button reads "Switch to real", so a live
+ * account is labelled REAL. UNKNOWN is neutral rather than alarming -- it
+ * means the page has not yet shown which kind of account this is.
+ */
+const BADGE: Record<AccountType, { label: string; tone: string; title: string }> = {
+  DEMO: {
+    label: 'DEMO',
+    tone: 'demo',
+    title: 'Demo account: practice money',
+  },
+  LIVE: {
+    label: 'REAL',
+    tone: 'live',
+    title: 'Real account: real money. Fortrader AI only reads it.',
+  },
+  UNKNOWN: {
+    label: 'UNKNOWN',
+    tone: 'unknown',
+    title: 'Fortrade has not shown yet whether this is a demo or real account',
+  },
 };
 
 function money(value: number, currency: string): string {
@@ -54,18 +77,15 @@ export function AccountBar({ account, pending }: Props): JSX.Element {
   }
 
   const { currency } = account;
+  const badge = BADGE[account.account_type];
 
   const pnlTone =
     account.open_pnl > 0 ? 'positive' : account.open_pnl < 0 ? 'negative' : undefined;
 
   return (
     <footer className="account-bar">
-      <span
-        className={`badge ${
-          account.account_type === 'DEMO' ? 'badge--demo' : 'badge--live'
-        }`}
-      >
-        {account.account_type}
+      <span className={`badge badge--${badge.tone}`} title={badge.title}>
+        {badge.label}
       </span>
 
       <Field label="Balance" value={money(account.balance, currency)} />

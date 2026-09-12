@@ -141,6 +141,19 @@ const PROBE_SCRIPT = `
     if (accountChips.length >= 5) break;
   }
 
+  // --- navigation hooks ------------------------------------------------
+  // data-nav names header and menu actions: "switchtoreal" exists only on a
+  // demo account. Recorded in full so the real-account counterpart is
+  // derived from the page rather than guessed.
+  const navHooks = Array.from(document.querySelectorAll('[data-nav]'))
+    .slice(0, 60)
+    .map((el) => ({
+      nav: el.getAttribute('data-nav'),
+      cls: typeof el.className === 'string' ? el.className.slice(0, 80) : undefined,
+      text: (el.textContent || '').trim().slice(0, 30) || undefined,
+      visible: el.getClientRects().length > 0,
+    }));
+
   // --- full subtree of representative containers -----------------------
   const subtree = (el, depth) => {
     if (!el || depth < 0) return null;
@@ -164,6 +177,7 @@ const PROBE_SCRIPT = `
     ['openTrades', '.openTradesTable, #openTrades, [data-role="openpositions"]', 4],
     ['accountPanel', '.accountFinanceState', 3],
     ['switchToReal', '[data-nav="switchtoreal"]', 1],
+    ['depositButton', '.depsoitButton', 1],
   ]) {
     const el = document.querySelector(sel);
     deep[name] = el ? subtree(el, depth) : null;
@@ -216,6 +230,7 @@ const PROBE_SCRIPT = `
     dataAttrNames,
     quoteRows,
     accountChips,
+    navHooks,
     deep,
     tables,
     positionsProbe,
@@ -228,7 +243,9 @@ export async function dumpFortradeDom(
   outputPath: string,
 ): Promise<void> {
   try {
-    const raw: unknown = await contents.executeJavaScript(PROBE_SCRIPT, true);
+    // userGesture false, as for extraction: the probe only reads, and must
+    // not be able to satisfy a user-activation gate even by accident.
+    const raw: unknown = await contents.executeJavaScript(PROBE_SCRIPT, false);
 
     if (typeof raw !== 'string') {
       log.error('Probe returned unexpected type', { type: typeof raw });

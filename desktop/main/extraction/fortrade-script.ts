@@ -45,7 +45,13 @@ export const FORTRADE_SELECTORS = {
     scrollContainer: '.tradesScrollContainer',
   },
   accountType: {
+    /** Demo only: the header offers to switch to a real account. */
     switchToReal: '[data-nav="switchtoreal"]',
+    /**
+     * Real only: the same header slot is a deposit button instead -- in
+     * the DOM even while hidden at narrow widths. Captured with dom-probe.
+     */
+    deposit: '[data-nav="deposit"]',
   },
   chart: {
     tab: '.chartSymbolTab',
@@ -102,13 +108,18 @@ export const EXTRACTION_SCRIPT = `
     if (missing.length) {
       warnings.push('account fields unreadable: ' + missing.join(','));
     } else {
-      // A "switch to real" affordance only exists on a demo account.
-      // Absence proves nothing, so we report UNKNOWN rather than LIVE.
+      // Each type is recognised by something only it shows: a demo account
+      // offers "switch to real", and on a real account that header slot is
+      // a deposit button. Absence of both proves nothing, so it is UNKNOWN
+      // rather than a guess. Switch-to-real wins if both appear: a real
+      // account never offers it, and calling real money DEMO is the one
+      // mistake this must not make in the other direction.
       const demo = !!pick(document, S.accountType.switchToReal);
+      const real = !!pick(document, S.accountType.deposit);
 
       account = Object.assign(fields, {
         currency: currencyFrom(balanceRaw) || 'GBP',
-        account_type: demo ? 'DEMO' : 'UNKNOWN',
+        account_type: demo ? 'DEMO' : real ? 'LIVE' : 'UNKNOWN',
       });
     }
   } else {
